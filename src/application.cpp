@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <memory>
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -40,7 +41,7 @@ void processInput(GLFWwindow* window);
 
 void drawSceneGraph(Entity& parent, Shader& ourShader);
 int countSceneEntities(Entity& scene);
-void putChildrenInSceneHierarchy(Entity& parent);
+void putEntityInSceneHierarchyPanel(Entity& parent, int& entityId, Entity* &ptrToArray);
 
 // settings
 const unsigned int SCR_WIDTH = 1400;
@@ -225,7 +226,15 @@ int main()
             if(ImGui::CollapsingHeader("Scene Hierarchy"))
             {
                 // Populate Scene Hierarchy panel from the scene entity parent reference
-                putChildrenInSceneHierarchy(scene);
+                int entityId = 0; // this can also be used for no of visible entities in the hierarchy after the function below
+                const int totalEntities = countSceneEntities(scene) + 1;
+
+                Entity* ptrToEntity;
+                ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+                putEntityInSceneHierarchyPanel(scene, entityId, ptrToEntity);
+                
+                glm::vec3 position = ptrToEntity->transform.getGlobalPosition();
+                printf("%f", position.x);
                 
             }
 
@@ -302,8 +311,9 @@ void drawSceneGraph(Entity& parent, Shader& ourShader) {
     }
 }
 
-void putChildrenInSceneHierarchy(Entity& parent) {
-    static int selected_node = -1;
+void putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrToEntity) {
+    static int selected_node = 0; // select the scene on start
+
     int countChildrenEntities = parent.children.size();
     static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 
@@ -311,25 +321,37 @@ void putChildrenInSceneHierarchy(Entity& parent) {
 
     if (countChildrenEntities <= 0) {
         ImGuiTreeNodeFlags node_flags = base_flags;
-        if ((int)&parent == selected_node)
+        if (entityId == selected_node)
+        {
+            ptrToEntity = &parent;
             node_flags |= ImGuiTreeNodeFlags_Selected;
+        }
 
         node_flags |= ImGuiTreeNodeFlags_Leaf; // ImGuiTreeNodeFlags_Bullet
-        ImGui::TreeNodeEx((void*)&parent, node_flags, "%s", parent.entityName);
+        ImGui::TreeNodeEx((void*)(intptr_t)entityId, node_flags, "%s", parent.entityName);
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-            selected_node = (int)&parent;
+        {
+            ptrToEntity = &parent;
+            selected_node = entityId;
+        }
 
         ImGui::Unindent(); // After leaf Node - also offsets indent at beginning done when more than one leaf children
         return;
     }
 
     ImGuiTreeNodeFlags node_flags = base_flags;
-    if ((int)&parent == selected_node)
+    if (entityId == selected_node)
+    {
+        ptrToEntity = &parent;
         node_flags |= ImGuiTreeNodeFlags_Selected;
+    }
 
-    bool node_open = ImGui::TreeNodeEx((void*)&parent, node_flags, "%s", parent.entityName);
+    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)entityId, node_flags, "%s", parent.entityName);
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-        selected_node = (int)&parent;
+    {
+        ptrToEntity = &parent;
+        selected_node = entityId;
+    }
 
     for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
     {
@@ -337,10 +359,11 @@ void putChildrenInSceneHierarchy(Entity& parent) {
         {
             //ImGui::TreePush();
             // Calling a function makes it forget which tree node to push
-            putChildrenInSceneHierarchy(**it);
+            entityId++;
+            putEntityInSceneHierarchyPanel(**it, entityId, ptrToEntity);
         }
     }
-    ImGui::Unindent(); // Unindent after tree finishes - multible indentations are done to reach the bottom leaf
+    ImGui::Unindent(); // Unindent after tree finishes - multible indentations are done to reach the bottom leaf    
 }
 
 #pragma region Input Processing

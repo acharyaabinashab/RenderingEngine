@@ -395,7 +395,7 @@ public:
 	Model* pModel = nullptr;
 	std::unique_ptr<AABB> boundingVolume;
 
-	const char* entityName = "New Element";
+	const char* entityName = "New Entity";
 
 	// constructor, expects a filepath to a 3D model.
 	Entity(Model& model) : pModel{ &model }
