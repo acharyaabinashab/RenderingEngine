@@ -11,6 +11,7 @@
 *.pdb
 *.exe
 *.ini
+include/assimp/.editorconfig
 *.inl
 include/assimp
 include/glm
@@ -48,3 +49,8 @@ configuration/root_directory.h
 include/SOIL.h
 include/stb_image.h
 include/stb_image_aug.h
+.vs
+bin
+configuration
+dlls
+lib

@@ -37,6 +37,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
+int countSceneEntities(Entity& scene);
+
 // settings
 const unsigned int SCR_WIDTH = 1400;
 const unsigned int SCR_HEIGHT = 900;
@@ -119,13 +121,13 @@ int main()
     // load entities
     // -----------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
-    Entity ourEntity(model);
-    ourEntity.transform.setLocalPosition({ 10, 0, 0 });
+    Entity scene(model);
+    scene.transform.setLocalPosition({ 10, 0, 0 });
     const float scale = 0.75;
-    ourEntity.transform.setLocalScale({ scale, scale, scale });
+    scene.transform.setLocalScale({ scale, scale, scale });
 
     {
-        Entity* lastEntity = &ourEntity;
+        Entity* lastEntity = &scene;
 
         for (unsigned int i = 0; i < 10; ++i)
         {
@@ -137,7 +139,9 @@ int main()
             lastEntity->transform.setLocalScale({ scale, scale, scale });
         }
     }
-    ourEntity.updateSelfAndChild();
+    scene.updateSelfAndChild();
+
+    printf("%d", countSceneEntities(scene));
 
     // uncomment this call to draw in wireframe polygons.
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -171,7 +175,7 @@ int main()
         ourShader.setMat4("view", view);
 
         // draw our scene graph
-        Entity* lastEntity = &ourEntity;
+        Entity* lastEntity = &scene;
         while (lastEntity->children.size())
         {
             ourShader.setMat4("model", lastEntity->transform.getModelMatrix());
@@ -179,9 +183,10 @@ int main()
             lastEntity = lastEntity->children.back().get();
         }
 
-        ourEntity.transform.setLocalRotation({ 0.f, ourEntity.transform.getLocalRotation().y + 20 * deltaTime, 0.f });
-        ourEntity.updateSelfAndChild();
+        scene.transform.setLocalRotation({ 0.f, scene.transform.getLocalRotation().y + 20 * deltaTime, 0.f });
+        scene.updateSelfAndChild();
 
+        #pragma region ImGUI Panels
         //ImGUI Setup
         // --------------------------------------------------------------------------------
         //New ImGUI Frame
@@ -259,6 +264,7 @@ int main()
         //ImGUI Render
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        #pragma endregion Editor UI
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -276,6 +282,24 @@ int main()
     glfwTerminate();
     return 0;
 }
+
+int countSceneEntities(Entity &scene) {
+    int countChildrenEntities = scene.children.size();
+    int totalEntities = 0;
+
+    if (countChildrenEntities <= 0)
+        return 0;
+
+    // 'it' gives the address to the pointer pointing at the first/last child of the list
+    for (auto it = scene.children.begin(); it != scene.children.end(); ++it)
+    {
+        totalEntities++;
+        totalEntities += countSceneEntities(**it);
+    }
+    return totalEntities;
+}
+
+#pragma region Input Processing
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
@@ -351,3 +375,5 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         }
     }
 }
+
+#pragma endregion
