@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <string>
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -37,7 +38,9 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
+void drawSceneGraph(Entity& parent, Shader& ourShader);
 int countSceneEntities(Entity& scene);
+void putChildrenInSceneHierarchy(Entity& parent);
 
 // settings
 const unsigned int SCR_WIDTH = 1400;
@@ -121,8 +124,8 @@ int main()
     // load entities
     // -----------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
-    Entity scene(model);
-    scene.transform.setLocalPosition({ 10, 0, 0 });
+    Entity scene(model, "Scene");
+    scene.transform.setLocalPosition({ 0, 0, -10 });
     const float scale = 0.75;
     scene.transform.setLocalScale({ scale, scale, scale });
 
@@ -132,16 +135,24 @@ int main()
         for (unsigned int i = 0; i < 10; ++i)
         {
             lastEntity->addChild(model);
-            lastEntity = lastEntity->children.back().get();
+            lastEntity->addChild(model);
+            //Set tranform values
+            lastEntity->children.front().get()->transform.setLocalPosition({ -10, 0, 0 });
+            lastEntity->children.front().get()->transform.setLocalScale({ scale, scale, scale });
 
             //Set tranform values
-            lastEntity->transform.setLocalPosition({ 10, 0, 0 });
-            lastEntity->transform.setLocalScale({ scale, scale, scale });
+            lastEntity->children.back().get()->transform.setLocalPosition({ -10, 4, 0 });
+            lastEntity->children.back().get()->transform.setLocalScale({ scale, scale, scale });
+
+            lastEntity = lastEntity->children.back().get();
         }
     }
-    scene.updateSelfAndChild();
 
-    printf("%d", countSceneEntities(scene));
+    scene.addChild(model);
+    scene.children.back().get()->transform.setLocalPosition({ 0,0,0 });
+
+    // BUG: Not all children being rendered - only one child at back being rendered recursively
+    scene.updateSelfAndChild();
 
     // uncomment this call to draw in wireframe polygons.
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -175,13 +186,15 @@ int main()
         ourShader.setMat4("view", view);
 
         // draw our scene graph
-        Entity* lastEntity = &scene;
-        while (lastEntity->children.size())
-        {
-            ourShader.setMat4("model", lastEntity->transform.getModelMatrix());
-            lastEntity->pModel->Draw(ourShader);
-            lastEntity = lastEntity->children.back().get();
-        }
+        //Entity* lastEntity = &scene;
+        //while (lastEntity->children.size())
+        //{
+        //    ourShader.setMat4("model", lastEntity->transform.getModelMatrix());
+        //    lastEntity->pModel->Draw(ourShader);
+        //    lastEntity = lastEntity->children.back().get(); // Only draws one of the child - add functionality to draw all
+        //}
+
+        drawSceneGraph(scene, ourShader);
 
         scene.transform.setLocalRotation({ 0.f, scene.transform.getLocalRotation().y + 20 * deltaTime, 0.f });
         scene.updateSelfAndChild();
@@ -209,36 +222,11 @@ int main()
            
             ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 
-            if(ImGui::CollapsingHeader("Scene"))
+            if(ImGui::CollapsingHeader("Scene Hierarchy"))
             {
-                static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-                    
-                static int selected_node = -1;
-                for (int i = 0; i < 6; i++)
-                {
-                    ImGuiTreeNodeFlags node_flags = base_flags;
-                    if (i == selected_node)
-                        node_flags |= ImGuiTreeNodeFlags_Selected;
-                    
-                    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Selectable Node %d", i);
-                    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                        selected_node = i;
-
-                    if (node_open)
-                    {
-                        i++;
-                        node_flags = base_flags;
-                        if (i == selected_node)
-                            node_flags |= ImGuiTreeNodeFlags_Selected;
-
-                        node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-                        ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Selectable Leaf %d", i);
-                        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                            selected_node = i;
-
-                        ImGui::TreePop();
-                    }                    
-                }
+                // Populate Scene Hierarchy panel from the scene entity parent reference
+                putChildrenInSceneHierarchy(scene);
+                
             }
 
             ImGui::End();
@@ -293,10 +281,66 @@ int countSceneEntities(Entity &scene) {
     // 'it' gives the address to the pointer pointing at the first/last child of the list
     for (auto it = scene.children.begin(); it != scene.children.end(); ++it)
     {
-        totalEntities++;
         totalEntities += countSceneEntities(**it);
+        totalEntities++;
     }
     return totalEntities;
+}
+
+void drawSceneGraph(Entity& parent, Shader& ourShader) {
+    int countChildrenEntities = parent.children.size();
+    ourShader.setMat4("model", parent.transform.getModelMatrix());
+    if (countChildrenEntities <= 0) {
+        parent.pModel->Draw(ourShader);
+        return;
+    }
+
+    for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
+    {
+        parent.pModel->Draw(ourShader);
+        drawSceneGraph(**it, ourShader);
+    }
+}
+
+void putChildrenInSceneHierarchy(Entity& parent) {
+    static int selected_node = -1;
+    int countChildrenEntities = parent.children.size();
+    static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+
+    ImGui::Indent();
+
+    if (countChildrenEntities <= 0) {
+        ImGuiTreeNodeFlags node_flags = base_flags;
+        if ((int)&parent == selected_node)
+            node_flags |= ImGuiTreeNodeFlags_Selected;
+
+        node_flags |= ImGuiTreeNodeFlags_Leaf; // ImGuiTreeNodeFlags_Bullet
+        ImGui::TreeNodeEx((void*)&parent, node_flags, "%s", parent.entityName);
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+            selected_node = (int)&parent;
+
+        ImGui::Unindent(); // After leaf Node - also offsets indent at beginning done when more than one leaf children
+        return;
+    }
+
+    ImGuiTreeNodeFlags node_flags = base_flags;
+    if ((int)&parent == selected_node)
+        node_flags |= ImGuiTreeNodeFlags_Selected;
+
+    bool node_open = ImGui::TreeNodeEx((void*)&parent, node_flags, "%s", parent.entityName);
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+        selected_node = (int)&parent;
+
+    for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
+    {
+        if (node_open)
+        {
+            //ImGui::TreePush();
+            // Calling a function makes it forget which tree node to push
+            putChildrenInSceneHierarchy(**it);
+        }
+    }
+    ImGui::Unindent(); // Unindent after tree finishes - multible indentations are done to reach the bottom leaf
 }
 
 #pragma region Input Processing
@@ -377,3 +421,53 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 #pragma endregion
+
+
+/*
+                #pragma region tree example
+                ImGuiTreeNodeFlags node_flags = base_flags;
+                if (0 == selected_node)
+                    node_flags |= ImGuiTreeNodeFlags_Selected;
+
+                bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)0, node_flags, "Selectable Node %d", 0);
+                if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+                    selected_node = 0;
+
+                if(node_open)
+                {
+                    node_flags = base_flags;
+                    if (1 == selected_node)
+                        node_flags |= ImGuiTreeNodeFlags_Selected;
+
+                    node_open = ImGui::TreeNodeEx((void*)(intptr_t)1, node_flags, "Selectable Leaf %d", 1);
+                    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+                        selected_node = 1;
+
+                    if(node_open)
+                    {
+                        node_flags = base_flags;
+                        if (2 == selected_node)
+                            node_flags |= ImGuiTreeNodeFlags_Selected;
+
+                        node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+                        ImGui::TreeNodeEx((void*)(intptr_t)2, node_flags, "Selectable Leaf %d", 2);
+                        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+                            selected_node = 2;
+
+                        ImGui::TreePop();
+                    }
+
+
+                    node_flags = base_flags;
+                    if (3 == selected_node)
+                        node_flags |= ImGuiTreeNodeFlags_Selected;
+
+                    node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+                    ImGui::TreeNodeEx((void*)(intptr_t)3, node_flags, "Selectable Leaf %d", 3);
+                    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+                        selected_node = 3;
+
+                    ImGui::TreePop();
+                }
+                #pragma endregion
+                */

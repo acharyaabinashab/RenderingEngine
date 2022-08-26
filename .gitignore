@@ -1,4 +1,3 @@
-
 *.vsidx
 .vs/RenderingEngine/v17/.suo
 *.lock
@@ -39,7 +38,6 @@ lib/SOIL.lib
 *.filters
 *.user
 x64
-
 src/glad.c
 src/stb_image.cpp
 include/image_helper.h
