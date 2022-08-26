@@ -39,6 +39,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
+void rightClickMenu(int entityId, Entity& parent);
 void drawSceneGraph(Entity& parent, Shader& ourShader);
 int countSceneEntities(Entity& scene);
 void putEntityInSceneHierarchyPanel(Entity& parent, int& entityId, Entity* &ptrToArray);
@@ -125,7 +126,8 @@ int main()
     // load entities
     // -----------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
-    Entity scene(model, "Scene");
+    //Entity scene(model, (char*)"Scene Root");
+    Entity scene(model, "Scene Root");
     scene.transform.setLocalPosition({ 0, 0, -10 });
     const float scale = 0.75;
     scene.transform.setLocalScale({ scale, scale, scale });
@@ -135,7 +137,7 @@ int main()
 
         for (unsigned int i = 0; i < 10; ++i)
         {
-            lastEntity->addChild(model);
+            lastEntity->addChild(model, "New Child");
             lastEntity->addChild(model);
             //Set tranform values
             lastEntity->children.front().get()->transform.setLocalPosition({ -10, 0, 0 });
@@ -208,10 +210,22 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        Entity* ptrToEntity = nullptr;
+        Entity* ptrToEntity = &scene;
         float entityPosition[3];
         float entityRotation[3];
         float entityScale[3];
+        //Setting Position
+        entityPosition[0] = ptrToEntity->transform.getLocalPosition().x;
+        entityPosition[1] = ptrToEntity->transform.getLocalPosition().y;
+        entityPosition[2] = ptrToEntity->transform.getLocalPosition().z;
+        //Setting Roatation
+        entityRotation[0] = ptrToEntity->transform.getLocalRotation().x;
+        entityRotation[1] = ptrToEntity->transform.getLocalRotation().y;
+        entityRotation[2] = ptrToEntity->transform.getLocalRotation().z;
+        //Setting Scale
+        entityScale[0] = ptrToEntity->transform.getLocalScale().x;
+        entityScale[1] = ptrToEntity->transform.getLocalScale().y;
+        entityScale[2] = ptrToEntity->transform.getLocalScale().z;
 
         // 1. Scene Graph Panel
         {
@@ -221,8 +235,32 @@ int main()
             ImGuiTreeNodeFlags node_flags = 0;
 
             ImGui::Begin("Hierarchy");                // Create a window called "Hello, world!" and append into it.
+            
+            
+            static int selected_fish = -1;
+            const char* names[] = { "Rename", "Delete"};
 
-            ImGui::Button("Add New");
+            // Simple selection popup (if you want to show the current selection inside the Button itself,
+            // you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
+            if (ImGui::Button("Add Entity +"))
+                ImGui::OpenPopup("my_select_popup");
+            if (ImGui::BeginPopup("my_select_popup"))
+            {
+                if (ImGui::BeginMenu("Add"))
+                {
+                    ImGui::MenuItem("Click me");
+                    ImGui::EndMenu();
+                }
+                ImGui::Separator();
+                for (int i = 0; i < IM_ARRAYSIZE(names); i++)
+                    if (ImGui::Selectable(names[i]))
+                        selected_fish = i;
+                ImGui::EndPopup();
+            }
+
+            ImGui::SameLine();
+            ImGui::Text("(%.1f FPS)", ImGui::GetIO().Framerate);
+            ImGui::Spacing();
            
             ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 
@@ -258,9 +296,9 @@ int main()
             static float f = 0.0f;
             static int counter = 0;
 
-            ImGui::Begin("Property");                // Create a window called "Hello, world!" and append into it.
+            ImGui::Begin("Transform");                // Create a window called "Hello, world!" and append into it. 
 
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);         
+            ImGui::Text("%s", ptrToEntity->entityName);
 
             // Setting Transformation from change
             // Position
@@ -331,7 +369,70 @@ void drawSceneGraph(Entity& parent, Shader& ourShader) {
     }
 }
 
+void rightClickMenu(int entityId, Entity& parent) {
+    // Right Click Menu
+    ImGui::PushID(entityId);
+    if (ImGui::BeginPopupContextItem("my_item_popup"))
+    {
+        if (ImGui::BeginMenu("Add"))
+        {
+            ImGui::MenuItem("Click me");
+            ImGui::EndMenu();
+        }
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Rename
+        // ------
+        if (ImGui::Button("Rename", ImVec2(100.0f, 0.0f)))
+            ImGui::OpenPopup("Rename Entity");
+
+        // Always center this window when appearing
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+        if (ImGui::BeginPopupModal("Rename Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::InputText("New Name", parent.entityName, IM_ARRAYSIZE(parent.entityName));
+            ImGui::Spacing();
+            if (ImGui::Button("Done", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+                ImGui::EndPopup();
+        }
+        
+        // Delete
+        // ------
+        if (ImGui::Button("Delete", ImVec2(100.0f, 0.0f)))
+            ImGui::OpenPopup("Delete?");
+
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+        if (ImGui::BeginPopupModal("Delete?", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::Text("All those beautiful files will be deleted.\nThis operation cannot be undone!\n\n");
+            ImGui::Separator();
+
+            //static int unused_i = 0;
+            //ImGui::Combo("Combo", &unused_i, "Delete\0Delete harder\0");
+
+            static bool dont_ask_me_next_time = false;
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+            ImGui::Checkbox("Don't ask me next time", &dont_ask_me_next_time);
+            ImGui::PopStyleVar();
+
+            if (ImGui::Button("OK", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+            ImGui::EndPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+}
+
 void putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrToEntity) {
+
     static int selected_node = 0; // select the scene on start
 
     int countChildrenEntities = parent.children.size();
@@ -349,6 +450,7 @@ void putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrT
 
         node_flags |= ImGuiTreeNodeFlags_Leaf; // ImGuiTreeNodeFlags_Bullet
         ImGui::TreeNodeEx((void*)(intptr_t)entityId, node_flags, "%s", parent.entityName);
+        rightClickMenu(entityId, parent);
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
             ptrToEntity = &parent;
@@ -367,7 +469,8 @@ void putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrT
     }
 
     bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)entityId, node_flags, "%s", parent.entityName);
-    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+    rightClickMenu(entityId, parent);
+    if (ImGui::IsItemClicked() || ImGui::IsItemToggledOpen())
     {
         ptrToEntity = &parent;
         selected_node = entityId;
