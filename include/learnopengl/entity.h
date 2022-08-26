@@ -395,7 +395,7 @@ public:
 	Model* pModel = nullptr;
 	std::unique_ptr<AABB> boundingVolume;
 
-	const char* entityName = "New Entity";
+	char entityName[128] = "New Element";
 
 	// constructor, expects a filepath to a 3D model.
 	Entity(Model& model) : pModel{ &model }
@@ -407,7 +407,7 @@ public:
 	// constructor, expects a filepath to a 3D model.
 	Entity(Model& model, const char* name) : pModel{ &model }
 	{
-		entityName = name;
+		strcpy(entityName, name);
 		boundingVolume = std::make_unique<AABB>(generateAABB(model));
 		//boundingVolume = std::make_unique<Sphere>(generateSphereBV(model));
 	}
