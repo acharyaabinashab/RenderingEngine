@@ -197,7 +197,7 @@ int main()
 
         drawSceneGraph(scene, ourShader);
 
-        scene.transform.setLocalRotation({ 0.f, scene.transform.getLocalRotation().y + 20 * deltaTime, 0.f });
+        //scene.transform.setLocalRotation({ 0.f, scene.transform.getLocalRotation().y + 20 * deltaTime, 0.f });
         scene.updateSelfAndChild();
 
         #pragma region ImGUI Panels
@@ -208,7 +208,10 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        static float vec3f[3] = { 10.10f, 2.20f, 33.30f};
+        Entity* ptrToEntity = nullptr;
+        float entityPosition[3];
+        float entityRotation[3];
+        float entityScale[3];
 
         // 1. Scene Graph Panel
         {
@@ -229,13 +232,22 @@ int main()
                 int entityId = 0; // this can also be used for no of visible entities in the hierarchy after the function below
                 const int totalEntities = countSceneEntities(scene) + 1;
 
-                Entity* ptrToEntity;
+                
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                 putEntityInSceneHierarchyPanel(scene, entityId, ptrToEntity);
                 
-                glm::vec3 position = ptrToEntity->transform.getGlobalPosition();
-                printf("%f", position.x);
-                
+                //Setting Position
+                entityPosition[0] = ptrToEntity->transform.getLocalPosition().x;
+                entityPosition[1] = ptrToEntity->transform.getLocalPosition().y;
+                entityPosition[2] = ptrToEntity->transform.getLocalPosition().z;
+                //Setting Roatation
+                entityRotation[0] = ptrToEntity->transform.getLocalRotation().x;
+                entityRotation[1] = ptrToEntity->transform.getLocalRotation().y;
+                entityRotation[2] = ptrToEntity->transform.getLocalRotation().z;
+                //Setting Scale
+                entityScale[0] = ptrToEntity->transform.getLocalScale().x;
+                entityScale[1] = ptrToEntity->transform.getLocalScale().y;
+                entityScale[2] = ptrToEntity->transform.getLocalScale().z;
             }
 
             ImGui::End();
@@ -248,10 +260,18 @@ int main()
 
             ImGui::Begin("Property");                // Create a window called "Hello, world!" and append into it.
 
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);            
-            ImGui::DragFloat3("Position", vec3f, 0.05f, 0.0f, 255.0f);
-            ImGui::DragFloat3("Rotation", vec3f, 0.05f, 0.0f, 255.0f);
-            ImGui::DragFloat3("Scale", vec3f, 0.05f, 0.0f, 255.0f);
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);         
+
+            // Setting Transformation from change
+            // Position
+            ImGui::DragFloat3("Position", entityPosition, 0.05f, -255.0f, 255.0f);
+            ptrToEntity->transform.setLocalPosition(glm::vec3(entityPosition[0], entityPosition[1], entityPosition[2]));
+            // Rotation
+            ImGui::DragFloat3("Rotation", entityRotation, 0.05f, -255.0f, 255.0f);
+            ptrToEntity->transform.setLocalRotation(glm::vec3(entityRotation[0], entityRotation[1], entityRotation[2]));
+            // Scale
+            ImGui::DragFloat3("Scale", entityScale, 0.05f, -255.0f, 255.0f);
+            ptrToEntity->transform.setLocalScale(glm::vec3(entityScale[0], entityScale[1], entityScale[2]));
 
             ImGui::End();
         }
