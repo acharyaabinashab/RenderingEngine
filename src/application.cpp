@@ -39,10 +39,10 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
-void rightClickMenu(int entityId, Entity& parent);
 void drawSceneGraph(Entity& parent, Shader& ourShader);
 int countSceneEntities(Entity& scene);
-void putEntityInSceneHierarchyPanel(Entity& parent, int& entityId, Entity* &ptrToArray);
+bool putEntityInSceneHierarchyPanel(Entity& parent, int& entityId, Entity* &ptrToArray);
+bool rightClickMenu(int entityId, Entity& m_entity);
 
 // settings
 const unsigned int SCR_WIDTH = 1400;
@@ -369,7 +369,8 @@ void drawSceneGraph(Entity& parent, Shader& ourShader) {
     }
 }
 
-void rightClickMenu(int entityId, Entity& parent) {
+bool rightClickMenu(int entityId, Entity& m_entity) {
+    bool deleted = false;
     // Right Click Menu
     ImGui::PushID(entityId);
     if (ImGui::BeginPopupContextItem("my_item_popup"))
@@ -393,7 +394,7 @@ void rightClickMenu(int entityId, Entity& parent) {
 
         if (ImGui::BeginPopupModal("Rename Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::InputText("New Name", parent.entityName, IM_ARRAYSIZE(parent.entityName));
+            ImGui::InputText("New Name", m_entity.entityName, IM_ARRAYSIZE(m_entity.entityName));
             ImGui::Spacing();
             if (ImGui::Button("Done", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
                 ImGui::EndPopup();
@@ -419,8 +420,32 @@ void rightClickMenu(int entityId, Entity& parent) {
             ImGui::Checkbox("Don't ask me next time", &dont_ask_me_next_time);
             ImGui::PopStyleVar();
 
-            if (ImGui::Button("OK", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+            if (ImGui::Button("OK", ImVec2(120, 0)))
+            { 
+                ImGui::CloseCurrentPopup(); 
+                //std::list<unique_ptr<Entity>>::iterator removeThisListEntity = parent.;
+                //parent.children.remove(*parent.children.begin());
+                //parent.children.remove(*removeThisEntity);
+                Entity* parent = m_entity.parent;
+                for (auto it = parent->children.begin(); it != parent->children.end(); ++it)
+                {
+                    printf("Test ");
+                    printf("%d == %d \n", &**it, &m_entity);
+                    if (**it == m_entity) 
+                    {
+                        printf("Delete this element \n");
+                        printf("Total Entities First: %d\n",countSceneEntities(*parent));
+                        parent->children.remove(*it); // removes unique_ptr element that points at the element1
+                        //cannot increment after removing?
+                        deleted = true;
+                        printf("Total Entities After Deletion: %d\n", countSceneEntities(*parent));
+                        break;
+                    }
+                }
+                printf("Got Out\n");
+            }
             ImGui::SetItemDefaultFocus();
+
             ImGui::SameLine();
             if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
             ImGui::EndPopup();
@@ -429,11 +454,13 @@ void rightClickMenu(int entityId, Entity& parent) {
         ImGui::EndPopup();
     }
     ImGui::PopID();
+    return deleted;
 }
 
-void putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrToEntity) {
+bool putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrToEntity) {
 
     static int selected_node = 0; // select the scene on start
+    bool deletedEntity = false;
 
     int countChildrenEntities = parent.children.size();
     static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
@@ -450,15 +477,15 @@ void putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrT
 
         node_flags |= ImGuiTreeNodeFlags_Leaf; // ImGuiTreeNodeFlags_Bullet
         ImGui::TreeNodeEx((void*)(intptr_t)entityId, node_flags, "%s", parent.entityName);
-        rightClickMenu(entityId, parent);
+        deletedEntity = rightClickMenu(entityId, parent);
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
             ptrToEntity = &parent;
             selected_node = entityId;
         }
-
         ImGui::Unindent(); // After leaf Node - also offsets indent at beginning done when more than one leaf children
-        return;
+        if (deletedEntity) return true;
+        return false;
     }
 
     ImGuiTreeNodeFlags node_flags = base_flags;
@@ -468,25 +495,33 @@ void putEntityInSceneHierarchyPanel(Entity& parent, int &entityId, Entity* &ptrT
         node_flags |= ImGuiTreeNodeFlags_Selected;
     }
 
+    // Render Entity in Hierarchy
     bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)entityId, node_flags, "%s", parent.entityName);
-    rightClickMenu(entityId, parent);
+    deletedEntity = rightClickMenu(entityId, parent);
+    if (deletedEntity) return true;
     if (ImGui::IsItemClicked() || ImGui::IsItemToggledOpen())
     {
         ptrToEntity = &parent;
         selected_node = entityId;
     }
 
+    bool deletedChild = false;
+    // Render Entity Children in hierarchy
     for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
     {
+        //printf("\n %d", it);
         if (node_open)
         {
             //ImGui::TreePush();
             // Calling a function makes it forget which tree node to push
             entityId++;
-            putEntityInSceneHierarchyPanel(**it, entityId, ptrToEntity);
+            deletedChild = putEntityInSceneHierarchyPanel(**it, entityId, ptrToEntity);
+            if (deletedChild) break; // if my child is deleted i have to reset the process - i cannot with my previous values of 'it'
         }
     }
-    ImGui::Unindent(); // Unindent after tree finishes - multible indentations are done to reach the bottom leaf    
+    ImGui::Unindent(); // Unindent after tree finishes - multible indentations are done to reach the bottom leaf 
+    if (deletedChild) return true;
+    return false;
 }
 
 #pragma region Input Processing
