@@ -388,6 +388,8 @@ public:
 	//Scene graph
 	std::list<std::unique_ptr<Entity>> children;
 	Entity* parent = nullptr;
+	static int counter;
+	int id;
 
 	//Space information
 	Transform transform;
@@ -400,6 +402,8 @@ public:
 	// constructor, expects a filepath to a 3D model.
 	Entity(Model& model) : pModel{ &model }
 	{
+		id = counter + 1;
+		counter++;
 		boundingVolume = std::make_unique<AABB>(generateAABB(model));
 		//boundingVolume = std::make_unique<Sphere>(generateSphereBV(model));
 	}
@@ -407,10 +411,16 @@ public:
 	// constructor, expects a filepath to a 3D model.
 	Entity(Model& model, const char* name) : pModel{ &model }
 	{
+		id = counter + 1;
+		counter++;
 		strcpy(entityName, name);
 		boundingVolume = std::make_unique<AABB>(generateAABB(model));
 		//boundingVolume = std::make_unique<Sphere>(generateSphereBV(model));
 	}
+
+	// This is needed by list.remove()
+	bool operator == (const Entity& e) const { return id == e.id; }
+	bool operator != (const Entity& e) const { return !operator==(e); }
 
 	AABB getGlobalAABB()
 	{
@@ -484,5 +494,27 @@ public:
 			child->drawSelfAndChild(frustum, ourShader, display, total);
 		}
 	}
+
+	int getTotalChildren() {
+		return countTotalEntityChildren(*this);
+	}
+
+private: int countTotalEntityChildren(Entity& entity) {
+	int countChildrenEntities = entity.children.size();
+	int totalEntities = 0;
+
+	if (countChildrenEntities <= 0)
+		return 0;
+
+	// 'it' gives the address to the pointer pointing at the first/last child of the list
+	for (auto it = entity.children.begin(); it != entity.children.end(); ++it)
+	{
+		totalEntities += countTotalEntityChildren(**it);
+		totalEntities++;
+	}
+	return totalEntities;
+}
 };
+
+int Entity::counter = 0;
 #endif

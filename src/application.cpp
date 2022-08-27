@@ -40,7 +40,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
 void drawSceneGraph(Entity& parent, Shader& ourShader);
-int countSceneEntities(Entity& scene);
 bool putEntityInSceneHierarchyPanel(Entity& parent, int& entityId, Entity* &ptrToArray);
 bool rightClickMenu(int entityId, Entity& m_entity);
 
@@ -236,7 +235,6 @@ int main()
 
             ImGui::Begin("Hierarchy");                // Create a window called "Hello, world!" and append into it.
             
-            
             static int selected_fish = -1;
             const char* names[] = { "Rename", "Delete"};
 
@@ -268,7 +266,6 @@ int main()
             {
                 // Populate Scene Hierarchy panel from the scene entity parent reference
                 int entityId = 0; // this can also be used for no of visible entities in the hierarchy after the function below
-                const int totalEntities = countSceneEntities(scene) + 1;
 
                 
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
@@ -338,22 +335,6 @@ int main()
     return 0;
 }
 
-int countSceneEntities(Entity &scene) {
-    int countChildrenEntities = scene.children.size();
-    int totalEntities = 0;
-
-    if (countChildrenEntities <= 0)
-        return 0;
-
-    // 'it' gives the address to the pointer pointing at the first/last child of the list
-    for (auto it = scene.children.begin(); it != scene.children.end(); ++it)
-    {
-        totalEntities += countSceneEntities(**it);
-        totalEntities++;
-    }
-    return totalEntities;
-}
-
 void drawSceneGraph(Entity& parent, Shader& ourShader) {
     int countChildrenEntities = parent.children.size();
     ourShader.setMat4("model", parent.transform.getModelMatrix());
@@ -421,28 +402,24 @@ bool rightClickMenu(int entityId, Entity& m_entity) {
             ImGui::PopStyleVar();
 
             if (ImGui::Button("OK", ImVec2(120, 0)))
-            { 
+            {
                 ImGui::CloseCurrentPopup(); 
-                //std::list<unique_ptr<Entity>>::iterator removeThisListEntity = parent.;
-                //parent.children.remove(*parent.children.begin());
-                //parent.children.remove(*removeThisEntity);
                 Entity* parent = m_entity.parent;
                 for (auto it = parent->children.begin(); it != parent->children.end(); ++it)
                 {
-                    printf("Test ");
-                    printf("%d == %d \n", &**it, &m_entity);
+                    //printf("Test ");
+                    //printf("%d == %d \n", &**it, &m_entity);
                     if (**it == m_entity) 
                     {
-                        printf("Delete this element \n");
-                        printf("Total Entities First: %d\n",countSceneEntities(*parent));
+                        //printf("Delete this element \n");
+                        //printf("Total Entities First: %d\n",parent->getTotalChildren());
                         parent->children.remove(*it); // removes unique_ptr element that points at the element1
                         //cannot increment after removing?
                         deleted = true;
-                        printf("Total Entities After Deletion: %d\n", countSceneEntities(*parent));
+                        //printf("Total Entities After Deletion: %d\n", parent->getTotalChildren());
                         break;
                     }
                 }
-                printf("Got Out\n");
             }
             ImGui::SetItemDefaultFocus();
 
