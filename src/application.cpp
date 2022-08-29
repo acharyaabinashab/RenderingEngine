@@ -58,10 +58,12 @@ bool mouseDragEnabled = false;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-
+// Addable Objects
+Model planetModel;
 
 int main()
 {
+    
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
@@ -96,12 +98,17 @@ int main()
         return -1;
     }
 
+    // It is initialized here because it needs the glad loader to finish for it to work
+    // Also doesn't work when this is called from outside the function from where it is declared
+    planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
+
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     stbi_set_flip_vertically_on_load(true);
 
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+
 
     // imgui: setup
     // ------------
@@ -124,8 +131,7 @@ int main()
 
     // load entities
     // -----------
-    Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
-    //Entity scene(model, (char*)"Scene Root");
+    Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
     Entity scene(model, "Scene Root");
     scene.transform.setLocalPosition({ 0, 0, -10 });
     const float scale = 0.75;
@@ -416,8 +422,8 @@ bool rightClickMenu(int nodeEntityId, Entity& m_entity) {
             {
                 // Bug is in draw function - that might be caused to incorrect model addition
                 printf("Total: %d\n", m_entity.getTotalChildren());
-                Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
-                m_entity.addChild(model, "New Planet");
+                // using planetModel declaration here and populating the entity with it causes the entity to not load that model correctly (says doesnt have path in debugger)
+                m_entity.addChild(planetModel, "New Planet");
                 printf("Total: %d\n", m_entity.getTotalChildren());
             }
             ImGui::EndMenu();
