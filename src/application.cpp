@@ -48,7 +48,7 @@ const unsigned int SCR_WIDTH = 1400;
 const unsigned int SCR_HEIGHT = 900;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 6.0f, -2.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -139,10 +139,9 @@ int main()
     // -----------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
     Entity scene(model, "Scene Root");
-    scene.transform.setLocalPosition({ 0, 0, -10 });
-    const float scale = 0.75;
-    scene.transform.setLocalScale({ scale, scale, scale });
-
+    scene.transform.setLocalPosition({ 0, 0, 0 });
+    
+    const float scale = 0.75f;
     {
         Entity* lastEntity = &scene;
 
@@ -160,9 +159,10 @@ int main()
 
             lastEntity = lastEntity->children.back().get();
         }
-        scene.addChild(model);
-        scene.children.back().get()->transform.setLocalPosition({ 0,0,0 });
     }
+
+    scene.addChild(sponzaModel, "Sponza Environment");
+    scene.children.back().get()->transform.setLocalScale({ 0.01,0.01,0.01 });
 
     //scene.updateSelfAndChild();
 
@@ -191,14 +191,37 @@ int main()
         // don't forget to enable shader before setting uniforms
         ourShader.use();
 
+        /*
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
         glm::mat4 view = camera.GetViewMatrix();
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
+        */
 
+        //scene.updateSelfAndChild();
+        //drawSceneGraph(scene, ourShader);
+
+        // view/projection transformations
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        const Frustum camFrustum = createFrustumFromCamera(camera, (float)SCR_WIDTH / (float)SCR_HEIGHT, glm::radians(camera.Zoom), 0.1f, 100.0f);
+
+        //cameraSpy.ProcessMouseMovement(2, 0);
+        //static float acc = 0;
+        //acc += deltaTime * 0.0001;
+        //cameraSpy.Position = { cos(acc) * 10, 0.f, sin(acc) * 10 };
+        glm::mat4 view = camera.GetViewMatrix();
+
+        ourShader.setMat4("projection", projection);
+        ourShader.setMat4("view", view);
+
+        // draw our scene graph
+        unsigned int total = 0, display = 0;
+        scene.drawSelfAndChild(camFrustum, ourShader, display, total);
+        std::cout << "Total process in CPU : " << total << " / Total send to GPU : " << display << std::endl;
+
+        //ourEntity.transform.setLocalRotation({ 0.f, ourEntity.transform.getLocalRotation().y + 20 * deltaTime, 0.f });
         scene.updateSelfAndChild();
-        drawSceneGraph(scene, ourShader);
 
         #pragma region ImGUI Panels
         //ImGUI Setup

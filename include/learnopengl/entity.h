@@ -399,6 +399,11 @@ public:
 
 	char entityName[128] = "New Element";
 
+	Entity(){
+		id = counter + 1;
+		counter++;
+	}
+
 	// constructor, expects a filepath to a 3D model.
 	Entity(Model& model) : pModel{ &model }
 	{
