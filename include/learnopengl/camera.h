@@ -103,8 +103,18 @@ public:
     }
 
     // processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
-    void ProcessMouseScroll(float yoffset)
+    void ProcessMouseScroll(float yoffset, bool mouseDragEnabled)
     {
+        if (mouseDragEnabled) {
+            MovementSpeed += (float)yoffset;
+            if (MovementSpeed < 1.0f)
+                MovementSpeed = 1.0f;
+            if (MovementSpeed > 45.0f)
+                MovementSpeed = 45.0f;
+
+            return;
+        }
+
         Zoom -= (float)yoffset;
         if (Zoom < 1.0f)
             Zoom = 1.0f;

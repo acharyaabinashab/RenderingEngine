@@ -455,6 +455,13 @@ public:
 		children.back()->parent = this;
 	}
 
+	template<typename... TArgs>
+	void addChildFront(TArgs&... args)
+	{
+		children.emplace_front(std::make_unique<Entity>(args...));
+		children.back()->parent = this;
+	}
+
 	//Update transform if it was changed
 	void updateSelfAndChild()
 	{

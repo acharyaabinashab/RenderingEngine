@@ -40,8 +40,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
 void drawSceneGraph(Entity& parent, Shader& ourShader);
-bool putEntityInSceneHierarchyPanel(Entity& parent, int& nodeEntityId, Entity* &ptrToArray);
-bool rightClickMenu(int entityId, Entity& m_entity);
+bool putEntityInSceneHierarchyPanel(Entity& parent, Entity* &ptrToSelectedEntity);
+bool rightClickMenu(Entity& m_entity);
 
 // settings
 const unsigned int SCR_WIDTH = 1400;
@@ -60,6 +60,10 @@ float lastFrame = 0.0f;
 
 // Addable Objects
 Model planetModel;
+Model rockModel;
+Model sponzaModel;
+
+int selected_hierarchy_node = 0; // select the scene on start
 
 int main()
 {
@@ -101,6 +105,8 @@ int main()
     // It is initialized here because it needs the glad loader to finish for it to work
     // Also doesn't work when this is called from outside the function from where it is declared
     planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
+    rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
+    sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     stbi_set_flip_vertically_on_load(true);
@@ -186,7 +192,7 @@ int main()
         ourShader.use();
 
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
         glm::mat4 view = camera.GetViewMatrix();
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
@@ -202,22 +208,22 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        Entity* ptrToEntity = &scene;
+        Entity* ptrToSelectedEntity = &scene;
         float entityPosition[3];
         float entityRotation[3];
         float entityScale[3];
         //Setting Position
-        entityPosition[0] = ptrToEntity->transform.getLocalPosition().x;
-        entityPosition[1] = ptrToEntity->transform.getLocalPosition().y;
-        entityPosition[2] = ptrToEntity->transform.getLocalPosition().z;
+        entityPosition[0] = ptrToSelectedEntity->transform.getLocalPosition().x;
+        entityPosition[1] = ptrToSelectedEntity->transform.getLocalPosition().y;
+        entityPosition[2] = ptrToSelectedEntity->transform.getLocalPosition().z;
         //Setting Roatation
-        entityRotation[0] = ptrToEntity->transform.getLocalRotation().x;
-        entityRotation[1] = ptrToEntity->transform.getLocalRotation().y;
-        entityRotation[2] = ptrToEntity->transform.getLocalRotation().z;
+        entityRotation[0] = ptrToSelectedEntity->transform.getLocalRotation().x;
+        entityRotation[1] = ptrToSelectedEntity->transform.getLocalRotation().y;
+        entityRotation[2] = ptrToSelectedEntity->transform.getLocalRotation().z;
         //Setting Scale
-        entityScale[0] = ptrToEntity->transform.getLocalScale().x;
-        entityScale[1] = ptrToEntity->transform.getLocalScale().y;
-        entityScale[2] = ptrToEntity->transform.getLocalScale().z;
+        entityScale[0] = ptrToSelectedEntity->transform.getLocalScale().x;
+        entityScale[1] = ptrToSelectedEntity->transform.getLocalScale().y;
+        entityScale[2] = ptrToSelectedEntity->transform.getLocalScale().z;
 
         // 1. Scene Graph Panel
         {
@@ -228,24 +234,27 @@ int main()
 
             ImGui::Begin("Hierarchy");                // Create a window called "Hello, world!" and append into it.
             
-            static int selected_fish = -1;
-            const char* names[] = { "Rename", "Delete"};
-
             // Simple selection popup (if you want to show the current selection inside the Button itself,
             // you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
             if (ImGui::Button("Add Entity +"))
                 ImGui::OpenPopup("my_select_popup");
             if (ImGui::BeginPopup("my_select_popup"))
             {
-                if (ImGui::BeginMenu("Add"))
-                {
-                    ImGui::MenuItem("Click me");
-                    ImGui::EndMenu();
+                ImGui::Dummy({ 100.0f, 0.0f });
+                
+                if (ImGui::MenuItem("Planet")) {
+                    scene.addChild(planetModel, "New Planet");
+                    selected_hierarchy_node = scene.children.back().get()->id;
                 }
-                ImGui::Separator();
-                for (int i = 0; i < IM_ARRAYSIZE(names); i++)
-                    if (ImGui::Selectable(names[i]))
-                        selected_fish = i;
+                if (ImGui::MenuItem("Rock")) {
+                    scene.addChild(rockModel, "New Rock");
+                    selected_hierarchy_node = scene.children.back().get()->id;
+                }
+                if (ImGui::MenuItem("Sponza")) {
+                    scene.addChild(sponzaModel, "New Sponza");
+                    selected_hierarchy_node = scene.children.back().get()->id;
+                }
+
                 ImGui::EndPopup();
             }
 
@@ -262,20 +271,20 @@ int main()
 
                 
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-                putEntityInSceneHierarchyPanel(scene, entityNodeId, ptrToEntity);
+                putEntityInSceneHierarchyPanel(scene, ptrToSelectedEntity);
                 
                 //Setting Position
-                entityPosition[0] = ptrToEntity->transform.getLocalPosition().x;
-                entityPosition[1] = ptrToEntity->transform.getLocalPosition().y;
-                entityPosition[2] = ptrToEntity->transform.getLocalPosition().z;
+                entityPosition[0] = ptrToSelectedEntity->transform.getLocalPosition().x;
+                entityPosition[1] = ptrToSelectedEntity->transform.getLocalPosition().y;
+                entityPosition[2] = ptrToSelectedEntity->transform.getLocalPosition().z;
                 //Setting Roatation
-                entityRotation[0] = ptrToEntity->transform.getLocalRotation().x;
-                entityRotation[1] = ptrToEntity->transform.getLocalRotation().y;
-                entityRotation[2] = ptrToEntity->transform.getLocalRotation().z;
+                entityRotation[0] = ptrToSelectedEntity->transform.getLocalRotation().x;
+                entityRotation[1] = ptrToSelectedEntity->transform.getLocalRotation().y;
+                entityRotation[2] = ptrToSelectedEntity->transform.getLocalRotation().z;
                 //Setting Scale
-                entityScale[0] = ptrToEntity->transform.getLocalScale().x;
-                entityScale[1] = ptrToEntity->transform.getLocalScale().y;
-                entityScale[2] = ptrToEntity->transform.getLocalScale().z;
+                entityScale[0] = ptrToSelectedEntity->transform.getLocalScale().x;
+                entityScale[1] = ptrToSelectedEntity->transform.getLocalScale().y;
+                entityScale[2] = ptrToSelectedEntity->transform.getLocalScale().z;
             }
 
             ImGui::End();
@@ -288,18 +297,18 @@ int main()
 
             ImGui::Begin("Transform");                // Create a window called "Hello, world!" and append into it. 
 
-            ImGui::Text("%s", ptrToEntity->entityName);
+            ImGui::Text("%s", ptrToSelectedEntity->entityName);
 
             // Setting Transformation from change
             // Position
             ImGui::DragFloat3("Position", entityPosition, 0.05f, -255.0f, 255.0f);
-            ptrToEntity->transform.setLocalPosition(glm::vec3(entityPosition[0], entityPosition[1], entityPosition[2]));
+            ptrToSelectedEntity->transform.setLocalPosition(glm::vec3(entityPosition[0], entityPosition[1], entityPosition[2]));
             // Rotation
             ImGui::DragFloat3("Rotation", entityRotation, 0.05f, -255.0f, 255.0f);
-            ptrToEntity->transform.setLocalRotation(glm::vec3(entityRotation[0], entityRotation[1], entityRotation[2]));
+            ptrToSelectedEntity->transform.setLocalRotation(glm::vec3(entityRotation[0], entityRotation[1], entityRotation[2]));
             // Scale
             ImGui::DragFloat3("Scale", entityScale, 0.05f, -255.0f, 255.0f);
-            ptrToEntity->transform.setLocalScale(glm::vec3(entityScale[0], entityScale[1], entityScale[2]));
+            ptrToSelectedEntity->transform.setLocalScale(glm::vec3(entityScale[0], entityScale[1], entityScale[2]));
 
             ImGui::End();
         }
@@ -343,9 +352,7 @@ void drawSceneGraph(Entity& parent, Shader& ourShader) {
     }
 }
 
-bool putEntityInSceneHierarchyPanel(Entity& parent, int &nodeEntityId, Entity* &ptrToEntity) {
-
-    static int selected_node = 0; // select the scene on start
+bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity) {
     bool deletedEntity = false;
 
     int countChildrenEntities = parent.children.size();
@@ -355,19 +362,19 @@ bool putEntityInSceneHierarchyPanel(Entity& parent, int &nodeEntityId, Entity* &
 
     if (countChildrenEntities <= 0) {
         ImGuiTreeNodeFlags node_flags = base_flags;
-        if (nodeEntityId == selected_node)
+        if (parent.id == selected_hierarchy_node)
         {
-            ptrToEntity = &parent;
+            ptrToSelectedEntity = &parent;
             node_flags |= ImGuiTreeNodeFlags_Selected;
         }
 
         node_flags |= ImGuiTreeNodeFlags_Leaf; // ImGuiTreeNodeFlags_Bullet
-        ImGui::TreeNodeEx((void*)(intptr_t)nodeEntityId, node_flags, "%s", parent.entityName);
-        deletedEntity = rightClickMenu(nodeEntityId, parent);
+        ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);
+        deletedEntity = rightClickMenu(parent);
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
-            ptrToEntity = &parent;
-            selected_node = nodeEntityId;
+            ptrToSelectedEntity = &parent;
+            selected_hierarchy_node = parent.id;
         }
         ImGui::Unindent(); // After leaf Node - also offsets indent at beginning done when more than one leaf children
         if (deletedEntity) return true;
@@ -375,19 +382,19 @@ bool putEntityInSceneHierarchyPanel(Entity& parent, int &nodeEntityId, Entity* &
     }
 
     ImGuiTreeNodeFlags node_flags = base_flags;
-    if (nodeEntityId == selected_node)
+    if (parent.id == selected_hierarchy_node)
     {
-        ptrToEntity = &parent;
+        ptrToSelectedEntity = &parent;
         node_flags |= ImGuiTreeNodeFlags_Selected;
     }
 
     // Render Entity in Hierarchy
-    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)nodeEntityId, node_flags, "%s", parent.entityName);
-    deletedEntity = rightClickMenu(nodeEntityId, parent);
+    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);
+    deletedEntity = rightClickMenu(parent);
     if (ImGui::IsItemClicked() || ImGui::IsItemToggledOpen())
     {
-        ptrToEntity = &parent;
-        selected_node = nodeEntityId;
+        ptrToSelectedEntity = &parent;
+        selected_hierarchy_node = parent.id;
     }
     if (deletedEntity) return true;
 
@@ -400,8 +407,8 @@ bool putEntityInSceneHierarchyPanel(Entity& parent, int &nodeEntityId, Entity* &
         {
             //ImGui::TreePush();
             // Calling a function makes it forget which tree node to push
-            nodeEntityId++;
-            deletedChild = putEntityInSceneHierarchyPanel(**it, nodeEntityId, ptrToEntity);
+            //nodeEntityId++;
+            deletedChild = putEntityInSceneHierarchyPanel(**it, ptrToSelectedEntity);
             if (deletedChild) break; // if my child is deleted i have to reset the process - i cannot with my previous values of 'it'
         }
     }
@@ -410,21 +417,23 @@ bool putEntityInSceneHierarchyPanel(Entity& parent, int &nodeEntityId, Entity* &
     return false;
 }
 
-bool rightClickMenu(int nodeEntityId, Entity& m_entity) {
+bool rightClickMenu(Entity& m_entity) {
     bool deleted = false;
     // Right Click Menu
-    ImGui::PushID(nodeEntityId);
+    ImGui::PushID(m_entity.id);
     if (ImGui::BeginPopupContextItem("my_item_popup"))
     {
         if (ImGui::BeginMenu("Add"))
         {
             if (ImGui::MenuItem("Planet"))
             {
-                // Bug is in draw function - that might be caused to incorrect model addition
-                printf("Total: %d\n", m_entity.getTotalChildren());
                 // using planetModel declaration here and populating the entity with it causes the entity to not load that model correctly (says doesnt have path in debugger)
                 m_entity.addChild(planetModel, "New Planet");
-                printf("Total: %d\n", m_entity.getTotalChildren());
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Rock")) {
+                m_entity.addChild(rockModel, "New Rock");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
             }
             ImGui::EndMenu();
         }
@@ -471,6 +480,7 @@ bool rightClickMenu(int nodeEntityId, Entity& m_entity) {
                         parent->children.remove(*it); // removes unique_ptr element that points at the element1
                         //cannot increment iterator after removing?
                         deleted = true;
+                        selected_hierarchy_node = parent->id;
                         break;
                     }
                 }
@@ -548,7 +558,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 // ----------------------------------------------------------------------
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    camera.ProcessMouseScroll(yoffset);
+    camera.ProcessMouseScroll(yoffset, mouseDragEnabled);
 }
 
 // glfw: whenever the mouse button is pressed, this callback is called
