@@ -499,21 +499,21 @@ public:
 		return countTotalEntityChildren(*this);
 	}
 
-private: int countTotalEntityChildren(Entity& entity) {
-	int countChildrenEntities = entity.children.size();
-	int totalEntities = 0;
+	private: int countTotalEntityChildren(Entity& entity) {
+		int countChildrenEntities = entity.children.size();
+		int totalEntities = 0;
 
-	if (countChildrenEntities <= 0)
-		return 0;
+		if (countChildrenEntities <= 0)
+			return 0;
 
-	// 'it' gives the address to the pointer pointing at the first/last child of the list
-	for (auto it = entity.children.begin(); it != entity.children.end(); ++it)
-	{
-		totalEntities += countTotalEntityChildren(**it);
-		totalEntities++;
+		// 'it' gives the address to the pointer pointing at the first/last child of the list
+		for (auto it = entity.children.begin(); it != entity.children.end(); ++it)
+		{
+			totalEntities += countTotalEntityChildren(**it);
+			totalEntities++;
+		}
+		return totalEntities;
 	}
-	return totalEntities;
-}
 };
 
 int Entity::counter = 0;
