@@ -399,9 +399,15 @@ public:
 
 	char entityName[128] = "New Element";
 
-	Entity(){
+	Entity() {
 		id = counter + 1;
 		counter++;
+	}
+
+	Entity(const char* name) {
+		id = counter + 1;
+		counter++;
+		strcpy(entityName, name);
 	}
 
 	// constructor, expects a filepath to a 3D model.
@@ -493,17 +499,20 @@ public:
 
 	void drawSelfAndChild(const Frustum& frustum, Shader& ourShader, unsigned int& display, unsigned int& total)
 	{
+		total++;
+		for (auto&& child : children)
+		{
+			child->drawSelfAndChild(frustum, ourShader, display, total);
+		}
+
+		if (pModel == nullptr)
+			return;
+
 		if (boundingVolume->isOnFrustum(frustum, transform))
 		{
 			ourShader.setMat4("model", transform.getModelMatrix());
 			pModel->Draw(ourShader);
 			display++;
-		}
-		total++;
-
-		for (auto&& child : children)
-		{
-			child->drawSelfAndChild(frustum, ourShader, display, total);
 		}
 	}
 

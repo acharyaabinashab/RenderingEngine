@@ -43,12 +43,15 @@ void drawSceneGraph(Entity& parent, Shader& ourShader);
 bool putEntityInSceneHierarchyPanel(Entity& parent, Entity* &ptrToSelectedEntity);
 bool rightClickMenu(Entity& m_entity);
 
+void renderQuad();
+void renderCube();
+
 // settings
 const unsigned int SCR_WIDTH = 1400;
 const unsigned int SCR_HEIGHT = 900;
 
 // camera
-Camera camera(glm::vec3(0.0f, 6.0f, -2.0f));
+Camera camera(glm::vec3(0.0f, 6.0f, 4.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -74,6 +77,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwSwapInterval(0);
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -138,12 +142,14 @@ int main()
     // load entities
     // -----------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
-    Entity scene(model, "Scene Root");
+    Entity scene = Entity("Scene Root");
     scene.transform.setLocalPosition({ 0, 0, 0 });
     
     const float scale = 0.75f;
     {
-        Entity* lastEntity = &scene;
+        scene.addChild(planetModel, "Planets");
+        Entity* lastEntity = scene.children.back().get();
+        lastEntity->transform.setLocalScale({ 0.25f, 0.25f, 0.25f });
 
         for (unsigned int i = 0; i < 10; ++i)
         {
@@ -164,13 +170,103 @@ int main()
     scene.addChild(sponzaModel, "Sponza Environment");
     scene.children.back().get()->transform.setLocalScale({ 0.01,0.01,0.01 });
 
-    //scene.updateSelfAndChild();
 
-    // uncomment this call to draw in wireframe polygons.
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    // render loop
+
+
+
+    // build and compile shaders
+    // -------------------------
+    Shader shaderGeometryPass("src/8.2.g_buffer.vs", "src/8.2.g_buffer.fs");
+    Shader shaderLightingPass("src/8.2.deferred_shading.vs", "src/8.2.deferred_shading.fs");
+    Shader shaderLightBox("src/8.2.deferred_light_box.vs", "src/8.2.deferred_light_box.fs");
+
+    // load models
     // -----------
+    Model backpack(FileSystem::getPath("resources/objects/planet/planet.obj"));
+    std::vector<glm::vec3> objectPositions;
+    objectPositions.push_back(glm::vec3(-3.0, -0.5, -3.0));
+    objectPositions.push_back(glm::vec3(0.0, -0.5, -3.0));
+    objectPositions.push_back(glm::vec3(3.0, -0.5, -3.0));
+    objectPositions.push_back(glm::vec3(-3.0, -0.5, 0.0));
+    objectPositions.push_back(glm::vec3(0.0, -0.5, 0.0));
+    objectPositions.push_back(glm::vec3(3.0, -0.5, 0.0));
+    objectPositions.push_back(glm::vec3(-3.0, -0.5, 3.0));
+    objectPositions.push_back(glm::vec3(0.0, -0.5, 3.0));
+    objectPositions.push_back(glm::vec3(3.0, -0.5, 3.0));
+
+    // configure g-buffer framebuffer
+    // ------------------------------
+    unsigned int gBuffer;
+    glGenFramebuffers(1, &gBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+    unsigned int gPosition, gNormal, gAlbedoSpec;
+    // position color buffer
+    glGenTextures(1, &gPosition);
+    glBindTexture(GL_TEXTURE_2D, gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+    // normal color buffer
+    glGenTextures(1, &gNormal);
+    glBindTexture(GL_TEXTURE_2D, gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+    // color + specular color buffer
+    glGenTextures(1, &gAlbedoSpec);
+    glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
+    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
+    unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+    // create and attach depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // lighting info
+    // -------------
+    const unsigned int NR_LIGHTS = 32;
+    std::vector<glm::vec3> lightPositions;
+    std::vector<glm::vec3> lightColors;
+    srand(13);
+    for (unsigned int i = 0; i < NR_LIGHTS; i++)
+    {
+        // calculate slightly random offsets
+        float xPos = static_cast<float>(((rand() % 100) / 100.0) * 6.0 - 3.0);
+        float yPos = static_cast<float>(((rand() % 100) / 100.0) * 6.0 - 4.0);
+        float zPos = static_cast<float>(((rand() % 100) / 100.0) * 6.0 - 3.0);
+        lightPositions.push_back(glm::vec3(xPos, yPos, zPos));
+        // also calculate random color
+        float rColor = static_cast<float>(((rand() % 100) / 200.0f) + 0.5); // between 0.5 and 1.)
+        float gColor = static_cast<float>(((rand() % 100) / 200.0f) + 0.5); // between 0.5 and 1.)
+        float bColor = static_cast<float>(((rand() % 100) / 200.0f) + 0.5); // between 0.5 and 1.)
+        lightColors.push_back(glm::vec3(rColor, gColor, bColor));
+    }
+
+    // shader configuration
+    // --------------------
+    shaderLightingPass.use();
+    shaderLightingPass.setInt("gPosition", 0);
+    shaderLightingPass.setInt("gNormal", 1);
+    shaderLightingPass.setInt("gAlbedoSpec", 2);
+
+
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------
+    // Render Loop
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------
     while (!glfwWindowShouldClose(window))
     {
         // per-frame time logic
@@ -183,45 +279,97 @@ int main()
         // -----
         processInput(window);
 
+        // Update model transforms changed in previouse frame
+        scene.updateSelfAndChild();
+
         // render
         // ------
-        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+        // 1. geometry pass: render scene's geometry/color data into gbuffer
+        // -----------------------------------------------------------------
+        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // don't forget to enable shader before setting uniforms
-        ourShader.use();
-
-        /*
-        // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        ourShader.setMat4("projection", projection);
-        ourShader.setMat4("view", view);
-        */
-
-        //scene.updateSelfAndChild();
-        //drawSceneGraph(scene, ourShader);
-
-        // view/projection transformations
+        //Camera Setup
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
         const Frustum camFrustum = createFrustumFromCamera(camera, (float)SCR_WIDTH / (float)SCR_HEIGHT, glm::radians(camera.Zoom), 0.1f, 100.0f);
 
-        //cameraSpy.ProcessMouseMovement(2, 0);
-        //static float acc = 0;
-        //acc += deltaTime * 0.0001;
-        //cameraSpy.Position = { cos(acc) * 10, 0.f, sin(acc) * 10 };
-        glm::mat4 view = camera.GetViewMatrix();
+        shaderGeometryPass.use();
+        shaderGeometryPass.setMat4("projection", projection);
+        shaderGeometryPass.setMat4("view", view);
 
-        ourShader.setMat4("projection", projection);
-        ourShader.setMat4("view", view);
+        glm::mat4 model = glm::mat4(1.0f);
+        for (unsigned int i = 0; i < objectPositions.size(); i++)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, objectPositions[i]);
+            model = glm::scale(model, glm::vec3(0.25f));
+            shaderGeometryPass.setMat4("model", model);
+            backpack.Draw(shaderGeometryPass);
+        }
 
-        // draw our scene graph
+        // draw our Scene Graph
         unsigned int total = 0, display = 0;
-        scene.drawSelfAndChild(camFrustum, ourShader, display, total);
+        scene.drawSelfAndChild(camFrustum, shaderGeometryPass, display, total);
         std::cout << "Total process in CPU : " << total << " / Total send to GPU : " << display << std::endl;
 
-        //ourEntity.transform.setLocalRotation({ 0.f, ourEntity.transform.getLocalRotation().y + 20 * deltaTime, 0.f });
-        scene.updateSelfAndChild();
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // 2. lighting pass: calculate lighting by iterating over a screen filled quad pixel-by-pixel using the gbuffer's content.
+        // -----------------------------------------------------------------------------------------------------------------------
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        shaderLightingPass.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gPosition);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gNormal);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+        // send light relevant uniforms
+        for (unsigned int i = 0; i < lightPositions.size(); i++)
+        {
+            shaderLightingPass.setVec3("lights[" + std::to_string(i) + "].Position", lightPositions[i]);
+            shaderLightingPass.setVec3("lights[" + std::to_string(i) + "].Color", lightColors[i]);
+            // update attenuation parameters and calculate radius
+            const float constant = 1.0f; // note that we don't send this to the shader, we assume it is always 1.0 (in our case)
+            const float linear = 0.7f;
+            const float quadratic = 1.8f;
+            shaderLightingPass.setFloat("lights[" + std::to_string(i) + "].Linear", linear);
+            shaderLightingPass.setFloat("lights[" + std::to_string(i) + "].Quadratic", quadratic);
+            // then calculate radius of light volume/sphere
+            const float maxBrightness = std::fmaxf(std::fmaxf(lightColors[i].r, lightColors[i].g), lightColors[i].b);
+            float radius = (-linear + std::sqrt(linear * linear - 4 * quadratic * (constant - (256.0f / 5.0f) * maxBrightness))) / (2.0f * quadratic);
+            shaderLightingPass.setFloat("lights[" + std::to_string(i) + "].Radius", radius);
+        }
+        shaderLightingPass.setVec3("viewPos", camera.Position);
+        // finally render quad
+        renderQuad();
+
+        // 2.5. copy content of geometry's depth buffer to default framebuffer's depth buffer
+        // ----------------------------------------------------------------------------------
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
+        // blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
+        // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the 		
+        // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
+        glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // 3. render lights on top of scene
+        // --------------------------------
+        shaderLightBox.use();
+        shaderLightBox.setMat4("projection", projection);
+        shaderLightBox.setMat4("view", view);
+        for (unsigned int i = 0; i < lightPositions.size(); i++)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, lightPositions[i]);
+            model = glm::scale(model, glm::vec3(0.125f));
+            shaderLightBox.setMat4("model", model);
+            shaderLightBox.setVec3("lightColor", lightColors[i]);
+            renderCube();
+        }
+        
 
         #pragma region ImGUI Panels
         //ImGUI Setup
@@ -358,21 +506,6 @@ int main()
     // ------------------------------------------------------------------
     glfwTerminate();
     return 0;
-}
-
-void drawSceneGraph(Entity& parent, Shader& ourShader) {
-    int countChildrenEntities = parent.children.size();
-    ourShader.setMat4("model", parent.transform.getModelMatrix());
-    if (countChildrenEntities <= 0) {
-        parent.pModel->Draw(ourShader);
-        return;
-    }
-
-    for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
-    {
-        parent.pModel->Draw(ourShader);
-        drawSceneGraph(**it, ourShader);
-    }
 }
 
 bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity) {
@@ -605,52 +738,125 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 #pragma endregion
 
+// renderCube() renders a 1x1 3D cube in NDC.
+// -------------------------------------------------
+unsigned int cubeVAO = 0;
+unsigned int cubeVBO = 0;
+void renderCube()
+{
+    // initialize (if necessary)
+    if (cubeVAO == 0)
+    {
+        float vertices[] = {
+            // back face
+            -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
+             1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
+             1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, // bottom-right         
+             1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
+            -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
+            -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f, // top-left
+            // front face
+            -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
+             1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, // bottom-right
+             1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
+             1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
+            -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f, // top-left
+            -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
+            // left face
+            -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
+            -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-left
+            -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
+            -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
+            -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-right
+            -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
+            // right face
+             1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
+             1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
+             1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-right         
+             1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
+             1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
+             1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-left     
+             // bottom face
+             -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
+              1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, // top-left
+              1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
+              1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
+             -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f, // bottom-right
+             -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
+             // top face
+             -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
+              1.0f,  1.0f , 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
+              1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f, // top-right     
+              1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
+             -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
+             -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f  // bottom-left        
+        };
+        glGenVertexArrays(1, &cubeVAO);
+        glGenBuffers(1, &cubeVBO);
+        // fill buffer
+        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        // link vertex attributes
+        glBindVertexArray(cubeVAO);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+    // render Cube
+    glBindVertexArray(cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+}
 
-/*
-                #pragma region tree example
-                ImGuiTreeNodeFlags node_flags = base_flags;
-                if (0 == selected_node)
-                    node_flags |= ImGuiTreeNodeFlags_Selected;
 
-                bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)0, node_flags, "Selectable Node %d", 0);
-                if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                    selected_node = 0;
-
-                if(node_open)
-                {
-                    node_flags = base_flags;
-                    if (1 == selected_node)
-                        node_flags |= ImGuiTreeNodeFlags_Selected;
-
-                    node_open = ImGui::TreeNodeEx((void*)(intptr_t)1, node_flags, "Selectable Leaf %d", 1);
-                    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                        selected_node = 1;
-
-                    if(node_open)
-                    {
-                        node_flags = base_flags;
-                        if (2 == selected_node)
-                            node_flags |= ImGuiTreeNodeFlags_Selected;
-
-                        node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-                        ImGui::TreeNodeEx((void*)(intptr_t)2, node_flags, "Selectable Leaf %d", 2);
-                        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                            selected_node = 2;
-
-                        ImGui::TreePop();
-                    }
+// renderQuad() renders a 1x1 XY quad in NDC
+// -----------------------------------------
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+            // positions        // texture Coords
+            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+             1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
 
 
-                    node_flags = base_flags;
-                    if (3 == selected_node)
-                        node_flags |= ImGuiTreeNodeFlags_Selected;
-
-                    node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-                    ImGui::TreeNodeEx((void*)(intptr_t)3, node_flags, "Selectable Leaf %d", 3);
-                    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                        selected_node = 3;
-
-                    ImGui::TreePop();
-                }
-                #pragma endregion
-                */
+//void drawSceneGraph(Entity& parent, Shader& ourShader) {
+//    int countChildrenEntities = parent.children.size();
+//    ourShader.setMat4("model", parent.transform.getModelMatrix());
+//    if (countChildrenEntities <= 0) {
+//        parent.pModel->Draw(ourShader);
+//        return;
+//    }
+//
+//    for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
+//    {
+//        parent.pModel->Draw(ourShader);
+//        drawSceneGraph(**it, ourShader);
+//    }
+//}
