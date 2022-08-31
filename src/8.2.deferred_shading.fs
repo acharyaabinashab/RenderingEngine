@@ -30,11 +30,12 @@ void main()
     // then calculate lighting as usual
     vec3 lighting  = Diffuse; // hard-coded ambient component
 
+    vec3 ambientCol = vec3(0.85f, 0.98f, 1.0f);
     // Directional Light
+    vec3 DLCol = vec3(1.0f, 1.0f, 0.88f);
     vec3 DL = normalize(vec3(0.5f, 0.5f, 0.5f));
     float directionalLighting = max(dot(Normal, DL * 1.6f), 0.3f);
-    lighting *= directionalLighting;
-
+    lighting *= (directionalLighting * DLCol) + (1 - directionalLighting) * 0.2f * ambientCol;
     vec3 viewDir  = normalize(viewPos - FragPos);
     for(int i = 0; i < NR_LIGHTS; ++i)
     {
@@ -57,4 +58,5 @@ void main()
         }
     }    
     FragColor = vec4(lighting, 1.0);
+
 }
