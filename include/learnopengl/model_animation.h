@@ -28,7 +28,7 @@ class Model
 {
 public:
     // model data 
-    vector<Texture> textures_loaded;	// stores all the textures loaded so far, optimization to make sure textures aren't loaded more than once.
+    vector<MeshTexture> textures_loaded;	// stores all the textures loaded so far, optimization to make sure textures aren't loaded more than once.
     vector<Mesh>    meshes;
     string directory;
     bool gammaCorrection;
@@ -109,7 +109,7 @@ private:
 	{
 		vector<Vertex> vertices;
 		vector<unsigned int> indices;
-		vector<Texture> textures;
+		vector<MeshTexture> textures;
 
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 		{
@@ -138,13 +138,13 @@ private:
 		}
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-		vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
+		vector<MeshTexture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
 		textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
-		vector<Texture> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
+		vector<MeshTexture> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
 		textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
-		std::vector<Texture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
+		std::vector<MeshTexture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
 		textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
-		std::vector<Texture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
+		std::vector<MeshTexture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
 		textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
 
 		ExtractBoneWeightForVertices(vertices,mesh,scene);
@@ -236,7 +236,7 @@ private:
 		}
 		else
 		{
-			std::cout << "Texture failed to load at path: " << path << std::endl;
+			std::cout << "MeshTexture failed to load at path: " << path << std::endl;
 			stbi_image_free(data);
 		}
 
@@ -245,9 +245,9 @@ private:
     
     // checks all material textures of a given type and loads the textures if they're not loaded yet.
     // the required info is returned as a Texture struct.
-    vector<Texture> loadMaterialTextures(aiMaterial *mat, aiTextureType type, string typeName)
+    vector<MeshTexture> loadMaterialTextures(aiMaterial *mat, aiTextureType type, string typeName)
     {
-        vector<Texture> textures;
+        vector<MeshTexture> textures;
         for(unsigned int i = 0; i < mat->GetTextureCount(type); i++)
         {
             aiString str;
@@ -265,7 +265,7 @@ private:
             }
             if(!skip)
             {   // if texture hasn't been loaded already, load it
-                Texture texture;
+                MeshTexture texture;
                 texture.id = TextureFromFile(str.C_Str(), this->directory);
                 texture.type = typeName;
                 texture.path = str.C_Str();

@@ -65,6 +65,7 @@ float lastFrame = 0.0f;
 Model planetModel;
 Model rockModel;
 Model sponzaModel;
+Model backPackModel;
 
 int selected_hierarchy_node = 0; // select the scene on start
 
@@ -107,6 +108,7 @@ int main()
     planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
     sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
+    backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     stbi_set_flip_vertically_on_load(true);
@@ -173,24 +175,24 @@ int main()
 
     // load models
     // -----------
-    Model backpack(FileSystem::getPath("resources/objects/planet/planet.obj"));
+    Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
     std::vector<glm::vec3> objectPositions;
-    objectPositions.push_back(glm::vec3(-3.0, -0.5, -3.0));
-    objectPositions.push_back(glm::vec3(0.0, -0.5, -3.0));
-    objectPositions.push_back(glm::vec3(3.0, -0.5, -3.0));
-    objectPositions.push_back(glm::vec3(-3.0, -0.5, 0.0));
-    objectPositions.push_back(glm::vec3(0.0, -0.5, 0.0));
-    objectPositions.push_back(glm::vec3(3.0, -0.5, 0.0));
-    objectPositions.push_back(glm::vec3(-3.0, -0.5, 3.0));
-    objectPositions.push_back(glm::vec3(0.0, -0.5, 3.0));
-    objectPositions.push_back(glm::vec3(3.0, -0.5, 3.0));
+    objectPositions.push_back(glm::vec3(-3.0, 0.5, -3.0));
+    objectPositions.push_back(glm::vec3(0.0, 0.5, -3.0));
+    objectPositions.push_back(glm::vec3(3.0, 0.5, -3.0));
+    objectPositions.push_back(glm::vec3(-3.0, 0.5, 0.0));
+    objectPositions.push_back(glm::vec3(0.0, 0.5, 0.0));
+    objectPositions.push_back(glm::vec3(3.0, 0.5, 0.0));
+    objectPositions.push_back(glm::vec3(-3.0, 0.5, 3.0));
+    objectPositions.push_back(glm::vec3(0.0, 0.5, 3.0));
+    objectPositions.push_back(glm::vec3(3.0, 0.5, 3.0));
 
     // configure g-buffer framebuffer
     // ------------------------------
     unsigned int gBuffer;
     glGenFramebuffers(1, &gBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-    unsigned int gPosition, gNormal, gAlbedoSpec;
+    unsigned int gPosition, gNormal, gAlbedoSpec, gMetallic, gAo;
     // position color buffer
     glGenTextures(1, &gPosition);
     glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -198,7 +200,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
-    // normal color buffer
+    // normal color buffer + metal
     glGenTextures(1, &gNormal);
     glBindTexture(GL_TEXTURE_2D, gNormal);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
@@ -212,6 +214,20 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
+    //// metallic
+    //glGenTextures(1, &gMetallic);
+    //glBindTexture(GL_TEXTURE_2D, gMetallic);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R, SCR_WIDTH, SCR_HEIGHT, 0, GL_R, GL_UNSIGNED_BYTE, NULL);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gMetallic, 0);
+    //// ao
+    //glGenTextures(1, &gAo);
+    //glBindTexture(GL_TEXTURE_2D, gAo);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R, SCR_WIDTH, SCR_HEIGHT, 0, GL_R, GL_UNSIGNED_BYTE, NULL);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAo, 0);
     // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
     unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
     glDrawBuffers(3, attachments);
@@ -413,6 +429,10 @@ int main()
                 }
                 if (ImGui::MenuItem("Sponza")) {
                     scene.addChild(sponzaModel, "New Sponza");
+                    selected_hierarchy_node = scene.children.back().get()->id;
+                }
+                if (ImGui::MenuItem("Backpack")) {
+                    scene.addChild(backpack, "New Backpack");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
 
