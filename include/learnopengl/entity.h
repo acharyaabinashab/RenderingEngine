@@ -382,14 +382,21 @@ Sphere generateSphereBV(const Model& model)
 	return Sphere((maxAABB + minAABB) * 0.5f, glm::length(minAABB - maxAABB));
 }
 
+struct Light 
+{
+	bool isEntityLight = false;
+	glm::vec3 color = {1.0f, 1.0f, 1.0f};
+};
+
 class Entity
 {
 public:
 	//Scene graph
+	int id;
 	std::list<std::unique_ptr<Entity>> children;
 	Entity* parent = nullptr;
 	static int counter;
-	int id;
+	Light pointLight;
 
 	//Space information
 	Transform transform;
@@ -427,6 +434,13 @@ public:
 		strcpy(entityName, name);
 		boundingVolume = std::make_unique<AABB>(generateAABB(model));
 		//boundingVolume = std::make_unique<Sphere>(generateSphereBV(model));
+	}
+
+	Entity(bool isEntityLight, const char* name){
+		pointLight.isEntityLight = isEntityLight;
+		id = counter + 1;
+		counter++;
+		strcpy(entityName, name);
 	}
 
 	// This is needed by list.remove()
@@ -473,6 +487,12 @@ public:
 		children.back()->parent = this;
 	}
 
+	void addChild(bool isEntityLight, const char* name)
+	{
+		children.emplace_back(std::make_unique<Entity>(isEntityLight, name));
+		children.back()->parent = this;
+	}
+
 	//Update transform if it was changed
 	void updateSelfAndChild()
 	{
@@ -513,6 +533,30 @@ public:
 			ourShader.setMat4("model", transform.getModelMatrix());
 			pModel->Draw(ourShader);
 			display++;
+		}
+	}
+
+	void drawPointLights(Shader& shaderLightingPass, unsigned int& total)
+	{
+		for (auto&& child : children)
+		{
+			child->drawPointLights(shaderLightingPass, total);
+		}
+
+		if (pModel == nullptr && pointLight.isEntityLight) {
+			shaderLightingPass.setVec3("lights[" + std::to_string(total) + "].Position",(glm::vec3) transform.getGlobalPosition());
+			shaderLightingPass.setVec3("lights[" + std::to_string(total) + "].Color", pointLight.color);
+			// update attenuation parameters and calculate radius
+			const float constant = 1.0f; // note that we don't send this to the shader, we assume it is always 1.0 (in our case)
+			const float linear = 0.7f;
+			const float quadratic = 1.8f;
+			shaderLightingPass.setFloat("lights[" + std::to_string(total) + "].Linear", linear);
+			shaderLightingPass.setFloat("lights[" + std::to_string(total) + "].Quadratic", quadratic);
+			// then calculate radius of light volume/sphere
+			const float maxBrightness = std::fmaxf(std::fmaxf(pointLight.color.r, pointLight.color.g), pointLight.color.b);
+			float radius = (-linear + std::sqrt(linear * linear - 4 * quadratic * (constant - (256.0f / 5.0f) * maxBrightness))) / (2.0f * quadratic);
+			shaderLightingPass.setFloat("lights[" + std::to_string(total) + "].Radius", radius);
+			total++;
 		}
 	}
 

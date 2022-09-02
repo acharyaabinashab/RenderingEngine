@@ -147,8 +147,8 @@ int main()
 
         for (unsigned int i = 0; i < 10; ++i)
         {
+            lastEntity->addChild(true, "New Light");
             lastEntity->addChild(model, "New Child");
-            lastEntity->addChild(model);
             //Set tranform values
             lastEntity->children.front().get()->transform.setLocalPosition({ -10, 0, 0 });
             lastEntity->children.front().get()->transform.setLocalScale({ scale, scale, scale });
@@ -314,7 +314,7 @@ int main()
         // draw our Scene Graph
         unsigned int total = 0, display = 0;
         scene.drawSelfAndChild(camFrustum, shaderGeometryPass, display, total);
-        std::cout << "Total process in CPU : " << total << " / Total send to GPU : " << display << std::endl;
+        //std::cout << "Total process in CPU : " << total << " / Total send to GPU : " << display << std::endl;
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -329,21 +329,8 @@ int main()
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
         // send light relevant uniforms
-        for (unsigned int i = 0; i < lightPositions.size(); i++)
-        {
-            shaderLightingPass.setVec3("lights[" + std::to_string(i) + "].Position", lightPositions[i]);
-            shaderLightingPass.setVec3("lights[" + std::to_string(i) + "].Color", lightColors[i]);
-            // update attenuation parameters and calculate radius
-            const float constant = 1.0f; // note that we don't send this to the shader, we assume it is always 1.0 (in our case)
-            const float linear = 0.7f;
-            const float quadratic = 1.8f;
-            shaderLightingPass.setFloat("lights[" + std::to_string(i) + "].Linear", linear);
-            shaderLightingPass.setFloat("lights[" + std::to_string(i) + "].Quadratic", quadratic);
-            // then calculate radius of light volume/sphere
-            const float maxBrightness = std::fmaxf(std::fmaxf(lightColors[i].r, lightColors[i].g), lightColors[i].b);
-            float radius = (-linear + std::sqrt(linear * linear - 4 * quadratic * (constant - (256.0f / 5.0f) * maxBrightness))) / (2.0f * quadratic);
-            shaderLightingPass.setFloat("lights[" + std::to_string(i) + "].Radius", radius);
-        }
+        unsigned int totalLights = 0;
+        scene.drawPointLights(shaderLightingPass, totalLights);
         shaderLightingPass.setVec3("viewPos", camera.Position);
         // finally render quad
         renderQuad();
@@ -430,6 +417,10 @@ int main()
                 }
                 if (ImGui::MenuItem("Backpack")) {
                     scene.addChild(backpack, "New Backpack");
+                    selected_hierarchy_node = scene.children.back().get()->id;
+                }
+                if (ImGui::MenuItem("PointLight")) {
+                    scene.addChild(true, "New PointLight");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
 
