@@ -106,10 +106,12 @@ int main()
 
     // It is initialized here because it needs the glad loader to finish for it to work
     // Also doesn't work when this is called from outside the function from where it is declared
+    std::cout << FileSystem::getPath("resources/objects/planet/planet.obj") << "\n";
     planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
     sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
     backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
+    std::cout << "Loaded all Models" << "\n";
     //sibenikModel = Model(FileSystem::getPath("resources/objects/sibenik/sibenik.obj"));
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
@@ -170,20 +172,7 @@ int main()
     Shader shaderLightingPass("src/8.2.deferred_shading.vs", "src/8.2.deferred_shading.fs");
     Shader shaderLightBox("src/8.2.deferred_light_box.vs", "src/8.2.deferred_light_box.fs");
 
-    // load models
-    // -----------
     Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
-    std::vector<glm::vec3> objectPositions;
-    objectPositions.push_back(glm::vec3(-3.0, 0.5, -3.0));
-    objectPositions.push_back(glm::vec3(0.0, 0.5, -3.0));
-    objectPositions.push_back(glm::vec3(3.0, 0.5, -3.0));
-    objectPositions.push_back(glm::vec3(-3.0, 0.5, 0.0));
-    objectPositions.push_back(glm::vec3(0.0, 0.5, 0.0));
-    objectPositions.push_back(glm::vec3(3.0, 0.5, 0.0));
-    objectPositions.push_back(glm::vec3(-3.0, 0.5, 3.0));
-    objectPositions.push_back(glm::vec3(0.0, 0.5, 3.0));
-    objectPositions.push_back(glm::vec3(3.0, 0.5, 3.0));
-
     // configure g-buffer framebuffer
     // ------------------------------
     unsigned int gBuffer;
@@ -239,25 +228,6 @@ int main()
         std::cout << "Framebuffer not complete!" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // lighting info
-    // -------------
-    const unsigned int NR_LIGHTS = 32;
-    std::vector<glm::vec3> lightPositions;
-    std::vector<glm::vec3> lightColors;
-    srand(13);
-    for (unsigned int i = 0; i < NR_LIGHTS; i++)
-    {
-        // calculate slightly random offsets
-        float xPos = static_cast<float>(((rand() % 100) / 100.0) * 6.0 - 3.0);
-        float yPos = static_cast<float>(((rand() % 100) / 100.0) * 6.0 - 4.0);
-        float zPos = static_cast<float>(((rand() % 100) / 100.0) * 6.0 - 3.0);
-        lightPositions.push_back(glm::vec3(xPos, yPos, zPos));
-        // also calculate random color
-        float rColor = static_cast<float>(((rand() % 100) / 200.0f) + 0.5); // between 0.5 and 1.)
-        float gColor = static_cast<float>(((rand() % 100) / 200.0f) + 0.5); // between 0.5 and 1.)
-        float bColor = static_cast<float>(((rand() % 100) / 200.0f) + 0.5); // between 0.5 and 1.)
-        lightColors.push_back(glm::vec3(rColor, gColor, bColor));
-    }
 
     // shader configuration
     // --------------------
@@ -301,16 +271,6 @@ int main()
         shaderGeometryPass.setMat4("projection", projection);
         shaderGeometryPass.setMat4("view", view);
 
-        glm::mat4 model = glm::mat4(1.0f);
-        for (unsigned int i = 0; i < objectPositions.size(); i++)
-        {
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, objectPositions[i]);
-            model = glm::scale(model, glm::vec3(0.25f));
-            shaderGeometryPass.setMat4("model", model);
-            backpack.Draw(shaderGeometryPass);
-        }
-
         // draw our Scene Graph
         unsigned int total = 0, display = 0;
         scene.drawSelfAndChild(camFrustum, shaderGeometryPass, display, total);
@@ -344,21 +304,6 @@ int main()
         // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
         glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // 3. render lights on top of scene
-        // --------------------------------
-        shaderLightBox.use();
-        shaderLightBox.setMat4("projection", projection);
-        shaderLightBox.setMat4("view", view);
-        for (unsigned int i = 0; i < lightPositions.size(); i++)
-        {
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, lightPositions[i]);
-            model = glm::scale(model, glm::vec3(0.125f));
-            shaderLightBox.setMat4("model", model);
-            shaderLightBox.setVec3("lightColor", lightColors[i]);
-            renderCube();
-        }
         
 
         #pragma region ImGUI Panels
