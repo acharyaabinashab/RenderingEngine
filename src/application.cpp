@@ -66,6 +66,7 @@ Model planetModel;
 Model rockModel;
 Model sponzaModel;
 Model backPackModel;
+//Model sibenikModel;
 
 int selected_hierarchy_node = 0; // select the scene on start
 
@@ -109,6 +110,7 @@ int main()
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
     sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
     backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
+    //sibenikModel = Model(FileSystem::getPath("resources/objects/sibenik/sibenik.obj"));
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     stbi_set_flip_vertically_on_load(true);
@@ -160,11 +162,6 @@ int main()
     }
 
     scene.addChild(sponzaModel, "Sponza Environment");
-    scene.children.back().get()->transform.setLocalScale({ 0.01,0.01,0.01 });
-
-
-
-
 
 
     // build and compile shaders
