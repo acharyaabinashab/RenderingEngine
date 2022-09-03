@@ -8,8 +8,11 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "ImGuizmo.h"
 
 #include <glm/glm.hpp>
+//#define GLM_ENABLE_EXPERIMENTAL
+//#include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -313,6 +316,7 @@ int main()
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+        ImGuizmo::BeginFrame();
 
         Entity* ptrToSelectedEntity = &scene;
         float entityPosition[3];
@@ -428,6 +432,18 @@ int main()
         }
 
         ImGui::ShowDemoWindow();
+
+        // Gizmos
+        ImGuizmo::SetOrthographic(false);
+        ImGuizmo::SetDrawlist();
+
+        float windowHeight = (float)ImGui::GetWindowHeight();
+        float windowWidth = (float)ImGui::GetWindowWidth();
+        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowHeight, windowWidth);
+
+        glm::mat4 transform = ptrToSelectedEntity->transform.getTranslation();
+        ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::LOCAL, glm::value_ptr(transform));
+
 
         //ImGUI Render
         ImGui::Render();

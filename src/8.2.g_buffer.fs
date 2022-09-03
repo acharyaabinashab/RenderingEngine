@@ -39,6 +39,5 @@ void main()
     vec3 texNormal = normalize(texture(texture_normal1, TexCoords).rgb * 2.0f - 1.0f);
     texNormal.g = -texNormal.g;   // In case the normal map was made with DX3D coordinates system in mind
     // also store the per-fragment normals into the gbuffer
-    gNormal.rgb = computeTexNormal(Normal, texNormal);
-    gNormal = normalize(Normal);
+    gNormal = computeTexNormal(Normal, texNormal);
 }
