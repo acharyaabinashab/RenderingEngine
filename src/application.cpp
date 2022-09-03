@@ -118,7 +118,7 @@ int main()
     //sibenikModel = Model(FileSystem::getPath("resources/objects/sibenik/sibenik.obj"));
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    stbi_set_flip_vertically_on_load(true);
+    //stbi_set_flip_vertically_on_load(true);
 
     // configure global opengl state
     // -----------------------------
@@ -182,7 +182,7 @@ int main()
     unsigned int gBuffer;
     glGenFramebuffers(1, &gBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-    unsigned int gPosition, gNormal, gAlbedoSpec, gMetallic, gAo;
+    unsigned int gPosition, gNormal, gAlbedoSpec, gMetallic, gAo, gFinalFrame;
     // position color buffer
     glGenTextures(1, &gPosition);
     glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -219,6 +219,14 @@ int main()
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAo, 0);
     // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
+    // color + specular color buffer
+    glGenTextures(1, &gFinalFrame);
+    glBindTexture(GL_TEXTURE_2D, gFinalFrame);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gFinalFrame, 0);
+
     unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
     glDrawBuffers(3, attachments);
     // create and attach depth buffer (renderbuffer)
@@ -233,12 +241,8 @@ int main()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
-    // shader configuration
-    // --------------------
-    shaderLightingPass.use();
-    shaderLightingPass.setInt("gPosition", 0);
-    shaderLightingPass.setInt("gNormal", 1);
-    shaderLightingPass.setInt("gAlbedoSpec", 2);
+    
+
 
 
     // -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -292,6 +296,13 @@ int main()
         glBindTexture(GL_TEXTURE_2D, gNormal);
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+
+        // shader configuration
+         // --------------------
+        shaderLightingPass.setInt("gPosition", 0);
+        shaderLightingPass.setInt("gNormal", 1);
+        shaderLightingPass.setInt("gAlbedoSpec", 2);
+        
         // send light relevant uniforms
         unsigned int totalLights = 0;
         scene.drawPointLights(shaderLightingPass, totalLights);
@@ -299,15 +310,7 @@ int main()
         // finally render quad
         renderQuad();
 
-        // 2.5. copy content of geometry's depth buffer to default framebuffer's depth buffer
-        // ----------------------------------------------------------------------------------
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
-        // blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
-        // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the 		
-        // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
-        glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         
 
         #pragma region ImGUI Panels
@@ -512,25 +515,49 @@ int main()
             ImGui::End();
         }
 
+        // 3. Viewport
+        {
+            ImGui::Begin("Viewport");
+
+            ImGui::Image((void*)gAlbedoSpec, ImVec2{ 256.0f, 256.0f });
+
+            // Gizmos
+            ImGuizmo::SetOrthographic(false);
+            ImGuizmo::SetDrawlist();
+
+            float windowHeight = (float)ImGui::GetWindowHeight();
+            float windowWidth = (float)ImGui::GetWindowWidth();
+            ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowHeight, windowWidth);
+
+            glm::mat4 transform = ptrToSelectedEntity->transform.getTranslation();
+            ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::LOCAL, glm::value_ptr(transform));
+
+            ImGui::End();
+        }
+
         ImGui::ShowDemoWindow();
 
-        // Gizmos
-        ImGuizmo::SetOrthographic(false);
-        ImGuizmo::SetDrawlist();
-
-        float windowHeight = (float)ImGui::GetWindowHeight();
-        float windowWidth = (float)ImGui::GetWindowWidth();
-        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowHeight, windowWidth);
-
-        glm::mat4 transform = ptrToSelectedEntity->transform.getTranslation();
-        ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::LOCAL, glm::value_ptr(transform));
-
+        // Close Dockspace
         ImGui::End();
 
         //ImGUI Render
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         #pragma endregion Editor UI
+
+
+
+
+
+        // 2.5. copy content of geometry's depth buffer to default framebuffer's depth buffer
+        // ----------------------------------------------------------------------------------
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
+        // blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
+        // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the 		
+        // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
+        glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -885,19 +912,3 @@ void renderQuad()
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }
-
-
-//void drawSceneGraph(Entity& parent, Shader& ourShader) {
-//    int countChildrenEntities = parent.children.size();
-//    ourShader.setMat4("model", parent.transform.getModelMatrix());
-//    if (countChildrenEntities <= 0) {
-//        parent.pModel->Draw(ourShader);
-//        return;
-//    }
-//
-//    for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
-//    {
-//        parent.pModel->Draw(ourShader);
-//        drawSceneGraph(**it, ourShader);
-//    }
-//}
