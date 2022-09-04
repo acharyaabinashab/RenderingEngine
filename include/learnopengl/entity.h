@@ -4,6 +4,7 @@
 #include <glm/glm.hpp> //glm::mat4
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <list> //std::list
 #include <array> //std::array
 #include <memory> //std::unique_ptr
@@ -86,8 +87,8 @@ public:
 	}
 
 	glm::mat4 getTranslation() const {
-		glm::mat4 rotation = glm::toMat4(glm::quat(m_eulerRot));
-		
+		glm::mat4 rotation = glm::toMat4(glm::quat(glm::radians(m_eulerRot)));
+
 		return glm::translate( glm::mat4(1.0), (glm::vec3)getGlobalPosition() ) 
 			* rotation 
 			* glm::scale(glm::mat4(1.0f), m_scale);
