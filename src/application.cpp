@@ -50,12 +50,12 @@ void renderQuad();
 void renderCube();
 
 // settings
-const unsigned int SCR_WIDTH = 1400;
-const unsigned int SCR_HEIGHT = 900;
+unsigned int SCR_WIDTH = 1400;
+unsigned int SCR_HEIGHT = 900;
 
 // camera
 Camera camera(glm::vec3(0.0f, 6.0f, 4.0f));
-float lastX = SCR_WIDTH / 2.0f;
+float lastX = SCR_WIDTH / 2.0f; // for glfw window not imgui window
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 bool mouseDragEnabled = false;
@@ -75,7 +75,6 @@ int selected_hierarchy_node = 0; // select the scene on start
 
 int main()
 {
-    
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
@@ -177,6 +176,7 @@ int main()
     Shader shaderLightBox("src/8.2.deferred_light_box.vs", "src/8.2.deferred_light_box.fs");
 
     Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
+
     // configure g-buffer framebuffer
     // ------------------------------
     unsigned int gBuffer;
@@ -517,21 +517,25 @@ int main()
 
         // 3. Viewport
         {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
             ImGui::Begin("Viewport");
+            ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+            SCR_WIDTH = viewportPanelSize.x;
+            SCR_HEIGHT = viewportPanelSize.y;
 
-            ImGui::Image((void*)gAlbedoSpec, ImVec2{ 256.0f, 256.0f });
+            // Because I use the texture from OpenGL, I need to invert the V from the UV.
+            ImGui::Image((void*)gAlbedoSpec, ImVec2{ (float)SCR_WIDTH, (float)SCR_HEIGHT }, ImVec2(0, 1), ImVec2(1, 0));
 
             // Gizmos
             ImGuizmo::SetOrthographic(false);
             ImGuizmo::SetDrawlist();
 
-            float windowHeight = (float)ImGui::GetWindowHeight();
-            float windowWidth = (float)ImGui::GetWindowWidth();
-            ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowHeight, windowWidth);
+            ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, SCR_WIDTH, SCR_HEIGHT);
 
             glm::mat4 transform = ptrToSelectedEntity->transform.getTranslation();
             ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::LOCAL, glm::value_ptr(transform));
 
+            ImGui::PopStyleVar();
             ImGui::End();
         }
 
