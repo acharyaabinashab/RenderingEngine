@@ -88,7 +88,9 @@ public:
 	glm::mat4 getTranslation() const {
 		glm::mat4 rotation = glm::toMat4(glm::quat(m_eulerRot));
 		
-		return glm::translate( glm::mat4(1.0), m_pos ) * rotation * glm::scale(glm::mat4(1.0f), m_scale);
+		return glm::translate( glm::mat4(1.0), (glm::vec3)getGlobalPosition() ) 
+			* rotation 
+			* glm::scale(glm::mat4(1.0f), m_scale);
 	}
 
 	const glm::mat4& getModelMatrix() const

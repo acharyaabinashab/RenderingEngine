@@ -533,7 +533,15 @@ int main()
             ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, SCR_WIDTH, SCR_HEIGHT);
 
             glm::mat4 transform = ptrToSelectedEntity->transform.getTranslation();
+            glm::vec3 posDiff = (glm::vec3)transform[3];
             ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::LOCAL, glm::value_ptr(transform));
+            glm::vec3 localPos = ptrToSelectedEntity->transform.getLocalPosition();
+            posDiff -= (glm::vec3)transform[3];
+            localPos -= posDiff;
+
+            if (ImGuizmo::IsUsing) {
+                ptrToSelectedEntity->transform.setLocalPosition(localPos);
+            }
 
             ImGui::PopStyleVar();
             ImGui::End();
