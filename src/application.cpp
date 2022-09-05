@@ -71,7 +71,7 @@ Model planetModel;
 Model rockModel;
 Model sponzaModel;
 Model backPackModel;
-//Model sibenikModel;
+Model dinosaurModel;
 
 int selected_hierarchy_node = 0; // select the scene on start
 int gizmoType = 0;
@@ -111,13 +111,12 @@ int main()
 
     // It is initialized here because it needs the glad loader to finish for it to work
     // Also doesn't work when this is called from outside the function from where it is declared
-    std::cout << FileSystem::getPath("resources/objects/planet/planet.obj") << "\n";
     planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
     sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
     backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
+    //dinosaurModel = Model(FileSystem::getPath("resources/objects/dinosaur/Dinosaur_texture.obj"));
     std::cout << "Loaded all Models" << "\n";
-    //sibenikModel = Model(FileSystem::getPath("resources/objects/sibenik/sibenik.obj"));
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     //stbi_set_flip_vertically_on_load(true);
@@ -126,7 +125,7 @@ int main()
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
 
-
+    // ------------
     // imgui: setup
     // ------------
     IMGUI_CHECKVERSION();
@@ -141,8 +140,9 @@ int main()
     // -------------------------
     Shader ourShader("src/1.model_loading.vs", "src/1.model_loading.fs");
 
+    // -------------
     // load entities
-    // -----------
+    // -------------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
     Entity scene = Entity("Scene Root");
     scene.transform.setLocalPosition({ 0, 0, 0 });
@@ -172,20 +172,25 @@ int main()
     scene.addChild(sponzaModel, "Sponza Environment");
 
 
+    // -------------------------
     // build and compile shaders
     // -------------------------
     Shader shaderGeometryPass("src/8.2.g_buffer.vs", "src/8.2.g_buffer.fs");
     Shader shaderLightingPass("src/8.2.deferred_shading.vs", "src/8.2.deferred_shading.fs");
     Shader shaderLightBox("src/8.2.deferred_light_box.vs", "src/8.2.deferred_light_box.fs");
+    Shader postProcecssing("src/pp.vs", "src/pp.fs");
 
-    Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
+    Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj")); // Doint this here prevents UV fckup
 
+
+    // ------------------------------
     // configure g-buffer framebuffer
     // ------------------------------
     unsigned int gBuffer;
     glGenFramebuffers(1, &gBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
     unsigned int gPosition, gNormal, gAlbedoSpec, gMetallic, gAo, gFinalFrame;
+
     // position color buffer
     glGenTextures(1, &gPosition);
     glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -193,6 +198,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+
     // normal color buffer + metal
     glGenTextures(1, &gNormal);
     glBindTexture(GL_TEXTURE_2D, gNormal);
@@ -200,6 +206,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+
     // color + specular color buffer
     glGenTextures(1, &gAlbedoSpec);
     glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
@@ -207,28 +214,6 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
-    //// metallic
-    //glGenTextures(1, &gMetallic);
-    //glBindTexture(GL_TEXTURE_2D, gMetallic);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R, SCR_WIDTH, SCR_HEIGHT, 0, GL_R, GL_UNSIGNED_BYTE, NULL);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gMetallic, 0);
-    //// ao
-    //glGenTextures(1, &gAo);
-    //glBindTexture(GL_TEXTURE_2D, gAo);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R, SCR_WIDTH, SCR_HEIGHT, 0, GL_R, GL_UNSIGNED_BYTE, NULL);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAo, 0);
-    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
-    // color + specular color buffer
-    glGenTextures(1, &gFinalFrame);
-    glBindTexture(GL_TEXTURE_2D, gFinalFrame);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gFinalFrame, 0);
 
     unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
     glDrawBuffers(3, attachments);
@@ -241,16 +226,32 @@ int main()
     // finally check if framebuffer is complete
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
+    // Creating separate buffer for Viewport
+    unsigned int vBuffer, vColor;
+    glGenFramebuffers(1, &vBuffer);
     
+    // color attachment for vBuffer
+    glGenTextures(1, &vColor);
+    glBindTexture(GL_TEXTURE_2D, vColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    // attach the texture
+    glBindFramebuffer(GL_FRAMEBUFFER, vBuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, vColor, 0);
+
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
 
 
-
-    // -------------------------------------------------------------------------------------------------------------------------------------------------------
+    // -----------
     // Render Loop
-    // -------------------------------------------------------------------------------------------------------------------------------------------------------
+    // -----------
     while (!glfwWindowShouldClose(window))
     {
         // per-frame time logic
@@ -259,15 +260,19 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // input
+        // -----
+        // Input
         // -----
         processInput(window);
 
         // Update model transforms changed in previouse frame
         scene.updateSelfAndChild();
 
-        // render
-        // ------
+
+        // -----------------
+        // Rendering Process
+        // -----------------
+
         // 1. geometry pass: render scene's geometry/color data into gbuffer
         // -----------------------------------------------------------------
         glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
@@ -285,12 +290,11 @@ int main()
         // draw our Scene Graph
         unsigned int total = 0, display = 0;
         scene.drawSelfAndChild(camFrustum, shaderGeometryPass, display, total);
-        //std::cout << "Total process in CPU : " << total << " / Total send to GPU : " << display << std::endl;
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // 2. lighting pass: calculate lighting by iterating over a screen filled quad pixel-by-pixel using the gbuffer's content.
         // -----------------------------------------------------------------------------------------------------------------------
+        glBindFramebuffer(GL_FRAMEBUFFER, vBuffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         shaderLightingPass.use();
         glActiveTexture(GL_TEXTURE0);
@@ -310,15 +314,17 @@ int main()
         unsigned int totalLights = 0;
         scene.drawPointLights(shaderLightingPass, totalLights);
         shaderLightingPass.setVec3("viewPos", camera.Position);
+
         // finally render quad
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         renderQuad();
-
-
         
 
         #pragma region ImGUI Panels
-        //ImGUI Setup
-        // --------------------------------------------------------------------------------
+        // -----------
+        // ImGUI Setup
+        // -----------
         //New ImGUI Frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -459,6 +465,10 @@ int main()
                     scene.addChild(true, "New PointLight");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
+                if (ImGui::MenuItem("Dinosaur")) {
+                    scene.addChild(dinosaurModel, "New Dinosaur");
+                    selected_hierarchy_node = scene.children.back().get()->id;
+                }
 
                 ImGui::EndPopup();
             }
@@ -527,7 +537,7 @@ int main()
             SCR_HEIGHT = viewportPanelSize.y;
 
             // Because I use the texture from OpenGL, I need to invert the V from the UV.
-            ImGui::Image((void*)gAlbedoSpec, ImVec2{ (float)SCR_WIDTH, (float)SCR_HEIGHT }, ImVec2(0, 1), ImVec2(1, 0));
+            ImGui::Image((void*)vColor, ImVec2{ (float)SCR_WIDTH, (float)SCR_HEIGHT }, ImVec2(0, 1), ImVec2(1, 0));
 
             // Gizmos
             ImGuizmo::SetOrthographic(false);

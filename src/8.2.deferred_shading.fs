@@ -1,5 +1,5 @@
 #version 330 core
-out vec4 gOutput; // Link this to the gFinalFrame buffer in application.cpp
+layout (location = 0) out vec3 vColor; // Link this to the gFinalFrame buffer in application.cpp
 
 in vec2 TexCoords;
 
@@ -50,5 +50,5 @@ void main()
             lighting += diffuse + specular;
         }
     }    
-    gOutput = vec4(lighting, 1.0);
+    vColor = vec4(lighting, 1.0);
 }
