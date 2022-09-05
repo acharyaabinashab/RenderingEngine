@@ -557,7 +557,7 @@ int main()
             ImGui::End();
         }
 
-        ImGui::ShowDemoWindow();
+        //ImGui::ShowDemoWindow();
 
         // Close Dockspace
         ImGui::End();
