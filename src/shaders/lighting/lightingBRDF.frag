@@ -100,7 +100,7 @@ void main()
         if (pointMode)
         {
             // Point light(s) computation
-            for (int i = 0; i < lightPointCounter; i++)
+            for (int i = 0; i < 10; i++)
             {
                 vec3 L = normalize(lightPointArray[i].position - viewPos);
                 vec3 H = normalize(L + V);

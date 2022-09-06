@@ -26,7 +26,6 @@
 #include "texture.h"
 #include "material.h"
 #include "shape.h"
-#include "light.h"
 
 #ifndef ENTITY_H
 #define ENTITY_H
@@ -172,7 +171,6 @@ Material pbrMat;
 
 Model objectModel;
 
-Light lightDirectional1;
 
 Shape quadRender;
 Shape envCubeRender;
@@ -929,6 +927,7 @@ int main()
     glfwTerminate();
     return 0;
 }
+
 
 void gBufferSetup()
 {
