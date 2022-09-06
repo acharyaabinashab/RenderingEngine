@@ -153,19 +153,22 @@ private:
         // specular: texture_specularN
         // normal: texture_normalN
 
-        // 1. diffuse maps
-        vector<MeshTexture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
+        // 1. albedo maps
+        vector<MeshTexture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texAlbedo");
         textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
-        // 2. specular maps
-        vector<MeshTexture> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
-        textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
-        // 3. normal maps
-        std::vector<MeshTexture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal"); // normal is passed as Bump in MTL file so HEIGHT here is used to get normal
+        // 2. normal maps
+        std::vector<MeshTexture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texNormal");
         textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
-        // 4. height maps
-        //std::vector<MeshTexture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
-        //textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
-        
+        // 3. roughness maps
+        vector<MeshTexture> roughnessMaps = loadMaterialTextures(material, aiTextureType_SHININESS, "texRoughness");
+        textures.insert(textures.end(), roughnessMaps.begin(), roughnessMaps.end());
+        // 4. metalness maps
+        std::vector<MeshTexture> metalnessMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texMetalness");
+        textures.insert(textures.end(), metalnessMaps.begin(), metalnessMaps.end());
+        // 4. ao maps
+        std::vector<MeshTexture> aoMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texAO");
+        textures.insert(textures.end(), aoMaps.begin(), aoMaps.end());
+
         // return a mesh object created from the extracted mesh data
         return Mesh(vertices, indices, textures);
     }

@@ -424,19 +424,7 @@ int main()
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-
-    // -------------------------
-    // build and compile shaders
-    // -------------------------
-    Shader shaderGeometryPass("src/8.2.g_buffer.vs", "src/8.2.g_buffer.fs");
-    Shader shaderLightingPass("src/8.2.deferred_shading.vs", "src/8.2.deferred_shading.fs");
-    Shader shaderLightBox("src/8.2.deferred_light_box.vs", "src/8.2.deferred_light_box.fs");
-    Shader postProcecssing("src/pp.vs", "src/pp.fs");
-
-    Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj")); // Doint this here prevents UV fckup
-
-
-    
+    Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj")); // Doing this here prevents UV fckup
 
 
     // -----------
@@ -449,6 +437,7 @@ int main()
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+
 
         // -----
         // Input
@@ -504,7 +493,7 @@ int main()
 
         // draw our Scene Graph
         unsigned int total = 0, display = 0;
-        scene.drawSelfAndChild(camFrustum, shaderGeometryPass, display, total);
+        scene.drawSelfAndChild(camFrustum, gBufferShader, display, total);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDGeometry[1], GL_TIMESTAMP);

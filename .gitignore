@@ -52,4 +52,9 @@ bin
 configuration
 dlls
 lib
-resources
+resources/objects/dinosaur
+resources/objects/sibenik
+resources/objects/rock
+resources/objects/sponza
+resources/textures
+resources/objects/planet
