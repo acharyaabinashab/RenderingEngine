@@ -1,5 +1,5 @@
 #version 330 core
-layout (location = 0) out vec3 vColor; // Link this to the gFinalFrame buffer in application.cpp
+out vec4 vColor; // Link this to the gFinalFrame buffer in application.cpp
 
 in vec2 TexCoords;
 

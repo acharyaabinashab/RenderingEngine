@@ -393,7 +393,7 @@ Sphere generateSphereBV(const Model& model)
 	return Sphere((maxAABB + minAABB) * 0.5f, glm::length(minAABB - maxAABB));
 }
 
-struct Light 
+struct LightEntity 
 {
 	bool isEntityLight = false;
 	glm::vec3 color = {1.0f, 1.0f, 1.0f};
@@ -407,7 +407,7 @@ public:
 	std::list<std::unique_ptr<Entity>> children;
 	Entity* parent = nullptr;
 	static int counter;
-	Light pointLight;
+	LightEntity pointLight;
 
 	//Space information
 	Transform transform;
