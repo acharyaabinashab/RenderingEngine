@@ -59,6 +59,7 @@ void renderCube();
 void gBufferSetup();
 void saoSetup();
 void postprocessSetup();
+void screenSetup();
 void iblSetup();
 
 // settings
@@ -76,6 +77,7 @@ GLuint screenQuadVAO, screenQuadVBO;
 GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gEffects;
 GLuint saoFBO, saoBlurFBO, saoBuffer, saoBlurBuffer;
 GLuint postprocessFBO, postprocessBuffer;
+GLuint screenFBO, screenBuffer;
 GLuint envToCubeFBO, irradianceFBO, prefilterFBO, brdfLUTFBO, envToCubeRBO, irradianceRBO, prefilterRBO, brdfLUTRBO;
 
 GLint gBufferView = 1;
@@ -387,6 +389,12 @@ int main()
     postprocessSetup();
 
 
+    //---------------------
+    // Screen setup
+    //---------------------
+    screenSetup();
+
+
     //----------
     // IBL setup
     //----------
@@ -623,6 +631,7 @@ int main()
         // Post-processing Pass rendering
         //-------------------------------
         glQueryCounter(queryIDPostprocess[0], GL_TIMESTAMP);
+        glBindFramebuffer(GL_FRAMEBUFFER, screenFBO);
         glClear(GL_COLOR_BUFFER_BIT);
 
         firstpassPPShader.use();
@@ -647,7 +656,37 @@ int main()
 
         quadRender.drawShape();
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDPostprocess[1], GL_TIMESTAMP);
+
+
+        //-----------------------
+        // Forward Pass rendering
+        //-----------------------
+        glQueryCounter(queryIDForward[0], GL_TIMESTAMP);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+        // Copy the depth informations from the Geometry Pass into the default framebuffer
+        glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        //// Shape(s) rendering
+        //if (pointMode)
+        //{
+        //    simpleShader.use();
+        //    glUniformMatrix4fv(glGetUniformLocation(simpleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        //    glUniformMatrix4fv(glGetUniformLocation(simpleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
+
+        //    for (int i = 0; i < Light::lightPointList.size(); i++)
+        //    {
+        //        glUniform4f(glGetUniformLocation(simpleShader.ID, "lightColor"), Light::lightPointList[i].getLightColor().r, Light::lightPointList[i].getLightColor().g, Light::lightPointList[i].getLightColor().b, Light::lightPointList[i].getLightColor().a);
+
+        //        if (Light::lightPointList[i].isMesh())
+        //            Light::lightPointList[i].lightMesh.drawShape(simpleShader, view, projection, camera);
+        //    }
+        //}
+        glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
         
 
         #pragma region ImGUI Panels
@@ -866,7 +905,7 @@ int main()
             SCR_HEIGHT = viewportPanelSize.y;
 
             // Because I use the texture from OpenGL, I need to invert the V from the UV.
-            ImGui::Image((void*)0, ImVec2{ (float)SCR_WIDTH, (float)SCR_HEIGHT }, ImVec2(0, 1), ImVec2(1, 0));
+            ImGui::Image((void*)screenBuffer, ImVec2{ (float)SCR_WIDTH, (float)SCR_HEIGHT }, ImVec2(0, 1), ImVec2(1, 0));
 
             // Gizmos
             ImGuizmo::SetOrthographic(false);
@@ -907,18 +946,6 @@ int main()
         #pragma endregion Editor UI
 
 
-
-
-
-        // 2.5. copy content of geometry's depth buffer to default framebuffer's depth buffer
-        // ----------------------------------------------------------------------------------
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
-        // blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
-        // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the 		
-        // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
-        glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -1021,6 +1048,23 @@ void saoSetup()
         std::cout << "SAO Blur Framebuffer not complete !" << std::endl;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void screenSetup()
+{
+    // Post-processing Buffer
+    glGenFramebuffers(1, &screenFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, screenFBO);
+
+    glGenTextures(1, &screenBuffer);
+    glBindTexture(GL_TEXTURE_2D, screenBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenBuffer, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Postprocess Framebuffer not complete !" << std::endl;
 }
 
 
