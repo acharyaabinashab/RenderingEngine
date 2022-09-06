@@ -23,9 +23,9 @@
 #include <learnopengl/model.h>
 #include <learnopengl/entity.h>
 
-#include <texture.h>
-#include <material.h>
-#include <shape.h>
+#include "texture.h"
+#include "material.h"
+#include "shape.h"
 #include "light.h"
 
 #ifndef ENTITY_H
@@ -49,7 +49,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
 void drawSceneGraph(Entity& parent, Shader& ourShader);
-bool putEntityInSceneHierarchyPanel(Entity& parent, Entity* &ptrToSelectedEntity);
+bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity);
 bool rightClickMenu(Entity& m_entity);
 bool DecomposeTransform(const glm::mat4& transform, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale);
 
@@ -195,6 +195,7 @@ Model dinosaurModel;
 
 int selected_hierarchy_node = 0; // select the scene on start
 int gizmoType = 0;
+bool mouseHoveringViewport = false;
 
 int main()
 {
@@ -254,7 +255,7 @@ int main()
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init((char*)glGetString(GL_NUM_SHADING_LANGUAGE_VERSIONS));
+    ImGui_ImplOpenGL3_Init((char*)glGetString(4.0)); // make it same as glfwWindowHint
 
     // build and compile shaders
     // -------------------------
@@ -266,7 +267,7 @@ int main()
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
     Entity scene = Entity("Scene Root");
     scene.transform.setLocalPosition({ 0, 0, 0 });
-    
+
     const float scale = 0.75f;
     {
         scene.addChild(planetModel, "Planets");
@@ -307,7 +308,7 @@ int main()
     firstpassPPShader.setShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/firstpass.frag");
     saoShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/sao.frag");
     saoBlurShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/saoBlur.frag");
-    
+
 
     //-----------
     // Textures(s)
@@ -325,8 +326,8 @@ int main()
     envMapPrefilter.setTextureCube(128, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
     envMapPrefilter.computeTexMipmap();
     envMapLUT.setTextureHDR(512, 512, GL_RG, GL_RG16F, GL_FLOAT, GL_LINEAR);
-    
-    
+
+
     //---------------
     // Shape(s)
     //---------------
@@ -433,7 +434,7 @@ int main()
     while (!glfwWindowShouldClose(window))
     {
         // per-frame time logic
-		// --------------------
+        // --------------------
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
@@ -582,14 +583,14 @@ int main()
         lightPoint3.setLightColor(glm::vec4(lightPointColor3, 1.0f));
         lightPoint1.setLightRadius(lightPointRadius1);
         lightPoint2.setLightRadius(lightPointRadius2);
-        lightPoint3.setLightRadius(lightPointRadius3);*/
+        lightPoint3.setLightRadius(lightPointRadius3);
 
-        /*for (int i = 0; i < Light::lightPointList.size(); i++)
+        for (int i = 0; i < Light::lightPointList.size(); i++)
         {
             Light::lightPointList[i].renderToShader(lightingBRDFShader, camera);
-        }*/
+        }
 
-        /*lightDirectional1.setLightDirection(lightDirectionalDirection1);
+        lightDirectional1.setLightDirection(lightDirectionalDirection1);
         lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
 
         for (int i = 0; i < Light::lightDirectionalList.size(); i++)
@@ -676,9 +677,9 @@ int main()
         //    }
         //}
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
-        
 
-        #pragma region ImGUI Panels
+
+#pragma region ImGUI Panels
         // -----------
         // ImGUI Setup
         // -----------
@@ -707,7 +708,7 @@ int main()
 
         // 0. Docking
         bool open = true;
-        bool *p_open = &open;
+        bool* p_open = &open;
         static bool opt_fullscreen = true;
         static bool opt_padding = false;
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -723,7 +724,7 @@ int main()
             ImGui::SetNextWindowViewport(viewport->ID);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove ;
+            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
             window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
         }
         else
@@ -783,7 +784,7 @@ int main()
             ImGui::EndMenuBar();
         }
 
-        
+
 
         // 1. Scene Graph Panel
         {
@@ -793,7 +794,7 @@ int main()
             ImGuiTreeNodeFlags node_flags = 0;
 
             ImGui::Begin("Hierarchy");                // Create a window called "Hello, world!" and append into it.
-            
+
             // Simple selection popup (if you want to show the current selection inside the Button itself,
             // you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
             if (ImGui::Button("Add Entity +"))
@@ -801,7 +802,7 @@ int main()
             if (ImGui::BeginPopup("my_select_popup"))
             {
                 ImGui::Dummy({ 100.0f, 0.0f });
-                
+
                 if (ImGui::MenuItem("Planet")) {
                     scene.addChild(planetModel, "New Planet");
                     selected_hierarchy_node = scene.children.back().get()->id;
@@ -833,18 +834,18 @@ int main()
             ImGui::SameLine();
             ImGui::Text("(%.1f FPS)", ImGui::GetIO().Framerate);
             ImGui::Spacing();
-           
+
             ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 
-            if(ImGui::CollapsingHeader("Scene Hierarchy"))
+            if (ImGui::CollapsingHeader("Scene Hierarchy"))
             {
                 // Populate Scene Hierarchy panel from the scene entity parent reference
                 int entityNodeId = 0; // this can also be used for no of visible entities in the hierarchy after the function below
 
-                
+
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                 putEntityInSceneHierarchyPanel(scene, ptrToSelectedEntity);
-                
+
                 //Setting Position
                 entityPosition[0] = ptrToSelectedEntity->transform.getLocalPosition().x;
                 entityPosition[1] = ptrToSelectedEntity->transform.getLocalPosition().y;
@@ -893,6 +894,11 @@ int main()
             SCR_WIDTH = viewportPanelSize.x;
             SCR_HEIGHT = viewportPanelSize.y;
 
+            if (ImGui::IsWindowFocused())
+                mouseHoveringViewport = true;
+            else
+                mouseHoveringViewport = false;
+
             // Because I use the texture from OpenGL, I need to invert the V from the UV.
             ImGui::Image((void*)screenBuffer, ImVec2{ (float)SCR_WIDTH, (float)SCR_HEIGHT }, ImVec2(0, 1), ImVec2(1, 0));
 
@@ -909,7 +915,7 @@ int main()
             posDiff -= (glm::vec3)transform[3];
             localPos -= posDiff;
 
-            if (ImGuizmo::IsUsing()) 
+            if (ImGuizmo::IsUsing())
             {
                 glm::vec3 translation, rotation, scale;
                 DecomposeTransform(transform, translation, rotation, scale);
@@ -932,7 +938,7 @@ int main()
         //ImGUI Render
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        #pragma endregion Editor UI
+#pragma endregion Editor UI
 
 
 
@@ -1426,7 +1432,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     lastX = xpos;
     lastY = ypos;
 
-    if(mouseDragEnabled)
+    if (mouseDragEnabled)
     {
         camera.ProcessMouseMovement(xoffset, yoffset);
     }
@@ -1444,13 +1450,13 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-        if(action == GLFW_PRESS)
+        if (action == GLFW_PRESS && mouseHoveringViewport)
         {
             firstMouse = true; // Prevents Jittering
             mouseDragEnabled = true;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
-        else if(action == GLFW_RELEASE)
+        else if (action == GLFW_RELEASE)
         {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             mouseDragEnabled = false;
