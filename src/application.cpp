@@ -1381,6 +1381,34 @@ void processInput(GLFWwindow* window)
         gizmoType = ImGuizmo::OPERATION::ROTATE;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS && !mouseDragEnabled)
         gizmoType = ImGuizmo::OPERATION::SCALE;
+
+    if ((glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS))
+        gBufferView = 1;
+
+    if ((glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS))
+        gBufferView = 2;
+
+    if ((glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS))
+        gBufferView = 3;
+
+    if ((glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS))
+        gBufferView = 4;
+
+    if ((glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS))
+        gBufferView = 5;
+
+    if ((glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS))
+        gBufferView = 6;
+
+    if ((glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS))
+        gBufferView = 7;
+
+    if ((glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS))
+        gBufferView = 8;
+
+    if ((glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS))
+        gBufferView = 9;
+
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes`
