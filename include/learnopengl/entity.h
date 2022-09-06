@@ -396,7 +396,8 @@ Sphere generateSphereBV(const Model& model)
 struct LightEntity 
 {
 	bool isEntityLight = false;
-	glm::vec3 color = {1.0f, 1.0f, 1.0f};
+	glm::vec4 color = glm::vec4(2.0f);
+	float radius = 10.0f;
 };
 
 class Entity
@@ -547,28 +548,23 @@ public:
 		}
 	}
 
-	void drawPointLights(Shader& shaderLightingPass, unsigned int& total)
+	void drawPointLights(Shader& shader, unsigned int& total, Camera& camera)
 	{
 		for (auto&& child : children)
 		{
-			child->drawPointLights(shaderLightingPass, total);
+			child->drawPointLights(shader, total, camera);
 		}
 
 		if (pModel == nullptr && pointLight.isEntityLight) {
-			shaderLightingPass.setVec3("lights[" + std::to_string(total) + "].Position",(glm::vec3) transform.getGlobalPosition());
-			shaderLightingPass.setVec3("lights[" + std::to_string(total) + "].Color", pointLight.color);
-			// update attenuation parameters and calculate radius
-			const float constant = 1.0f; // note that we don't send this to the shader, we assume it is always 1.0 (in our case)
-			const float linear = 0.7f;
-			const float quadratic = 1.8f;
-			shaderLightingPass.setFloat("lights[" + std::to_string(total) + "].Linear", linear);
-			shaderLightingPass.setFloat("lights[" + std::to_string(total) + "].Quadratic", quadratic);
-			// then calculate radius of light volume/sphere
-			const float maxBrightness = std::fmaxf(std::fmaxf(pointLight.color.r, pointLight.color.g), pointLight.color.b);
-			float radius = (-linear + std::sqrt(linear * linear - 4 * quadratic * (constant - (256.0f / 5.0f) * maxBrightness))) / (2.0f * quadratic);
-			shaderLightingPass.setFloat("lights[" + std::to_string(total) + "].Radius", radius);
+			glm::vec3 lightPositionViewSpace = glm::vec3(camera.GetViewMatrix() * glm::vec4(transform.getGlobalPosition(), 1.0f));
+
+			glUniform3f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].position").c_str()), lightPositionViewSpace.x, lightPositionViewSpace.y, lightPositionViewSpace.z);
+			glUniform4f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].color").c_str()), pointLight.color.x, pointLight.color.y, pointLight.color.z, pointLight.color.w);
+			glUniform1f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].radius").c_str()), pointLight.radius);
 			total++;
 		}
+
+		glUniform1f(glGetUniformLocation(shader.ID, "lightPointCounter"), 1);
 	}
 
 	int getTotalChildren() {

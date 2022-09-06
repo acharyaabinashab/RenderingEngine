@@ -113,7 +113,7 @@ GLfloat cameraISO = 1000.0f;
 GLfloat modelRotationSpeed = 0.0f;
 
 bool cameraMode;
-bool pointMode = false;
+bool pointMode = true;
 bool directionalMode = false;
 bool iblMode = true;
 bool saoMode = true;
@@ -126,12 +126,6 @@ bool keys[1024];
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
 glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
-glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
-glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
-glm::vec3 lightPointPosition3 = glm::vec3(0.0f, 0.75f, -1.2f);
-glm::vec3 lightPointColor1 = glm::vec3(1.0f);
-glm::vec3 lightPointColor2 = glm::vec3(1.0f);
-glm::vec3 lightPointColor3 = glm::vec3(1.0f);
 glm::vec3 lightDirectionalDirection1 = glm::vec3(-0.2f, -1.0f, -0.3f);
 glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
 glm::vec3 modelPosition = glm::vec3(0.0f);
@@ -178,9 +172,6 @@ Material pbrMat;
 
 Model objectModel;
 
-Light lightPoint1;
-Light lightPoint2;
-Light lightPoint3;
 Light lightDirectional1;
 
 Shape quadRender;
@@ -575,28 +566,8 @@ int main()
         glActiveTexture(GL_TEXTURE8);
         envMapLUT.useTexture();
 
-        /*lightPoint1.setLightPosition(lightPointPosition1);
-        lightPoint2.setLightPosition(lightPointPosition2);
-        lightPoint3.setLightPosition(lightPointPosition3);
-        lightPoint1.setLightColor(glm::vec4(lightPointColor1, 1.0f));
-        lightPoint2.setLightColor(glm::vec4(lightPointColor2, 1.0f));
-        lightPoint3.setLightColor(glm::vec4(lightPointColor3, 1.0f));
-        lightPoint1.setLightRadius(lightPointRadius1);
-        lightPoint2.setLightRadius(lightPointRadius2);
-        lightPoint3.setLightRadius(lightPointRadius3);
-
-        for (int i = 0; i < Light::lightPointList.size(); i++)
-        {
-            Light::lightPointList[i].renderToShader(lightingBRDFShader, camera);
-        }
-
-        lightDirectional1.setLightDirection(lightDirectionalDirection1);
-        lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
-
-        for (int i = 0; i < Light::lightDirectionalList.size(); i++)
-        {
-            Light::lightDirectionalList[i].renderToShader(lightingBRDFShader, camera);
-        }*/
+        unsigned int totalLights = 0;
+        scene.drawPointLights(lightingBRDFShader, totalLights, camera);
 
         glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
         glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
@@ -1273,14 +1244,30 @@ bool rightClickMenu(Entity& m_entity) {
     {
         if (ImGui::BeginMenu("Add"))
         {
-            if (ImGui::MenuItem("Planet"))
-            {
-                // using planetModel declaration here and populating the entity with it causes the entity to not load that model correctly (says doesnt have path in debugger)
+            ImGui::Dummy({ 100.0f, 0.0f });
+
+            if (ImGui::MenuItem("Planet")) {
                 m_entity.addChild(planetModel, "New Planet");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
             if (ImGui::MenuItem("Rock")) {
                 m_entity.addChild(rockModel, "New Rock");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Sponza")) {
+                m_entity.addChild(sponzaModel, "New Sponza");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Backpack")) {
+                m_entity.addChild(backPackModel, "New Backpack");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("PointLight")) {
+                m_entity.addChild(true, "New PointLight");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Dinosaur")) {
+                m_entity.addChild(dinosaurModel, "New Dinosaur");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
             ImGui::EndMenu();
