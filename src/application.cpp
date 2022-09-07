@@ -115,7 +115,7 @@ GLfloat modelRotationSpeed = 0.0f;
 
 bool cameraMode;
 bool pointMode = true;
-bool directionalMode = false;
+bool directionalMode = true;
 bool iblMode = true;
 bool saoMode = true;
 bool fxaaMode = true;
@@ -125,6 +125,7 @@ bool firstMouse = true;
 bool guiIsOpen = true;
 bool keys[1024];
 
+float directionalLightIntensity = 1.0f;
 glm::vec3 albedoColor = glm::vec3(1.0f);
 glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
 glm::vec3 lightDirectionalDirection1 = glm::vec3(-0.2f, -1.0f, -0.3f);
@@ -569,7 +570,15 @@ int main()
 
         unsigned int totalLights = 0;
         scene.drawPointLights(lightingBRDFShader, totalLights, camera);
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "lightPointCounter"), totalLights);
+
+        glUniform3f(glGetUniformLocation(lightingBRDFShader.ID, "lightDirectionalArray[0].color"),
+            lightDirectionalColor1.x * directionalLightIntensity,
+            lightDirectionalColor1.y * directionalLightIntensity,
+            lightDirectionalColor1.z * directionalLightIntensity);
+        glUniform3f(glGetUniformLocation(lightingBRDFShader.ID, "lightDirectionalArray[0].direction"),
+            lightDirectionalDirection1.x,
+            lightDirectionalDirection1.y,
+            lightDirectionalDirection1.z);
 
         glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
         glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
@@ -656,35 +665,48 @@ int main()
         // -----------
         // ImGUI Setup
         // -----------
+        
+        
         //New ImGUI Frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         ImGuizmo::BeginFrame();
 
+
         Entity* ptrToSelectedEntity = &scene;
         float entityPosition[3];
         float entityRotation[3];
         float entityScale[3];
+
+
         //Setting Position
         entityPosition[0] = ptrToSelectedEntity->transform.getLocalPosition().x;
         entityPosition[1] = ptrToSelectedEntity->transform.getLocalPosition().y;
         entityPosition[2] = ptrToSelectedEntity->transform.getLocalPosition().z;
+
+
         //Setting Roatation
         entityRotation[0] = ptrToSelectedEntity->transform.getLocalRotation().x;
         entityRotation[1] = ptrToSelectedEntity->transform.getLocalRotation().y;
         entityRotation[2] = ptrToSelectedEntity->transform.getLocalRotation().z;
+
+
         //Setting Scale
         entityScale[0] = ptrToSelectedEntity->transform.getLocalScale().x;
         entityScale[1] = ptrToSelectedEntity->transform.getLocalScale().y;
         entityScale[2] = ptrToSelectedEntity->transform.getLocalScale().z;
 
+
+        // ----------
         // 0. Docking
+        // ----------
         bool open = true;
         bool* p_open = &open;
         static bool opt_fullscreen = true;
         static bool opt_padding = false;
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+
 
         // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
         // because it would be confusing to have two docking targets within each others.
@@ -705,10 +727,12 @@ int main()
             dockspace_flags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
         }
 
+
         // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background
         // and handle the pass-thru hole, so we ask Begin() to not render a background.
         if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
             window_flags |= ImGuiWindowFlags_NoBackground;
+
 
         // Important: note that we proceed even if Begin() returns false (aka window is collapsed).
         // This is because we want to keep our DockSpace() active. If a DockSpace() is inactive,
@@ -720,9 +744,9 @@ int main()
         ImGui::Begin("DockSpace Demo", p_open, window_flags);
         if (!opt_padding)
             ImGui::PopStyleVar();
-
         if (opt_fullscreen)
             ImGui::PopStyleVar(2);
+
 
         // Submit the DockSpace
         ImGuiIO& io = ImGui::GetIO();
@@ -732,15 +756,20 @@ int main()
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
         }
 
+        // --------
+        // Menu Bar
+        // --------
         if (ImGui::BeginMenuBar())
         {
             if (ImGui::BeginMenu("Options"))
             {
+
                 // Disabling fullscreen would allow the window to be moved to the front of other windows,
                 // which we can't undo at the moment without finer window depth/z control.
                 ImGui::MenuItem("Fullscreen", NULL, &opt_fullscreen);
                 ImGui::MenuItem("Padding", NULL, &opt_padding);
                 ImGui::Separator();
+
 
                 if (ImGui::MenuItem("Flag: NoSplit", "", (dockspace_flags & ImGuiDockNodeFlags_NoSplit) != 0)) { dockspace_flags ^= ImGuiDockNodeFlags_NoSplit; }
                 if (ImGui::MenuItem("Flag: NoResize", "", (dockspace_flags & ImGuiDockNodeFlags_NoResize) != 0)) { dockspace_flags ^= ImGuiDockNodeFlags_NoResize; }
@@ -749,28 +778,30 @@ int main()
                 if (ImGui::MenuItem("Flag: PassthruCentralNode", "", (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) != 0, opt_fullscreen)) { dockspace_flags ^= ImGuiDockNodeFlags_PassthruCentralNode; }
                 ImGui::Separator();
 
+
                 if (ImGui::MenuItem("Close", NULL, false, p_open != NULL))
                     *p_open = false;
                 ImGui::EndMenu();
             }
 
+
             ImGui::EndMenuBar();
         }
 
 
-
+        // --------------------
         // 1. Scene Graph Panel
+        // --------------------
         {
             static float f = 0.0f;
             static int counter = 0;
-
             ImGuiTreeNodeFlags node_flags = 0;
 
-            ImGui::Begin("Hierarchy");                // Create a window called "Hello, world!" and append into it.
 
-            // Simple selection popup (if you want to show the current selection inside the Button itself,
-            // you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
-            if (ImGui::Button("Add Entity +"))
+            ImGui::Begin("Hierarchy");
+
+
+            if (ImGui::Button("Add Entity +", {150.0f, 25.0f}))
                 ImGui::OpenPopup("my_select_popup");
             if (ImGui::BeginPopup("my_select_popup"))
             {
@@ -800,70 +831,210 @@ int main()
                     scene.addChild(dinosaurModel, "New Dinosaur");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
-
                 ImGui::EndPopup();
             }
+
 
             ImGui::SameLine();
             ImGui::Text("(%.1f FPS)", ImGui::GetIO().Framerate);
             ImGui::Spacing();
 
-            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 
+            // ---------------
+            // Scene Hierarchy   : Populate Scene Hierarchy panel from the scene entity parent reference
+            // ---------------
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
             if (ImGui::CollapsingHeader("Scene Hierarchy"))
             {
-                // Populate Scene Hierarchy panel from the scene entity parent reference
-                int entityNodeId = 0; // this can also be used for no of visible entities in the hierarchy after the function below
-
-
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+
+
                 putEntityInSceneHierarchyPanel(scene, ptrToSelectedEntity);
 
-                //Setting Position
+
+                // Setting Position
                 entityPosition[0] = ptrToSelectedEntity->transform.getLocalPosition().x;
                 entityPosition[1] = ptrToSelectedEntity->transform.getLocalPosition().y;
                 entityPosition[2] = ptrToSelectedEntity->transform.getLocalPosition().z;
-                //Setting Roatation
+
+
+                // Setting Roatation
                 entityRotation[0] = ptrToSelectedEntity->transform.getLocalRotation().x;
                 entityRotation[1] = ptrToSelectedEntity->transform.getLocalRotation().y;
                 entityRotation[2] = ptrToSelectedEntity->transform.getLocalRotation().z;
-                //Setting Scale
+
+
+                // Setting Scale
                 entityScale[0] = ptrToSelectedEntity->transform.getLocalScale().x;
                 entityScale[1] = ptrToSelectedEntity->transform.getLocalScale().y;
                 entityScale[2] = ptrToSelectedEntity->transform.getLocalScale().z;
+
+
             }
+
 
             ImGui::End();
         }
 
+        // ------------------------
         // 2. Object Property Panel
+        // ------------------------
         {
             static float f = 0.0f;
             static int counter = 0;
 
-            ImGui::Begin("Transform");                // Create a window called "Hello, world!" and append into it. 
 
-            ImGui::Text("%s", ptrToSelectedEntity->entityName);
+            ImGui::Begin("Entity Properties");
 
-            // Setting Transformation from change
-            // Position
-            ImGui::DragFloat3("Position", entityPosition, 0.05f, -255.0f, 255.0f);
-            ptrToSelectedEntity->transform.setLocalPosition(glm::vec3(entityPosition[0], entityPosition[1], entityPosition[2]));
-            // Rotation
-            ImGui::DragFloat3("Rotation", entityRotation, 0.05f, -255.0f, 255.0f);
-            ptrToSelectedEntity->transform.setLocalRotation(glm::vec3(entityRotation[0], entityRotation[1], entityRotation[2]));
-            // Scale
-            ImGui::DragFloat3("Scale", entityScale, 0.05f, -255.0f, 255.0f);
-            ptrToSelectedEntity->transform.setLocalScale(glm::vec3(entityScale[0], entityScale[1], entityScale[2]));
+
+            ImGui::Text("[ %s ]", ptrToSelectedEntity->entityName);
+
+            
+            // ----------------------------
+            // Setting New Entity Transform
+            // ----------------------------
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Transform"))
+            {
+                ImGui::Indent();
+                ImGui::DragFloat3("Position", entityPosition, 0.05f, -255.0f, 255.0f);                                                  // Position
+                ptrToSelectedEntity->transform.setLocalPosition(glm::vec3(entityPosition[0], entityPosition[1], entityPosition[2]));
+                ImGui::DragFloat3("Rotation", entityRotation, 0.1f, -255.0f, 255.0f);                                                   // Rotation
+                ptrToSelectedEntity->transform.setLocalRotation(glm::vec3(entityRotation[0], entityRotation[1], entityRotation[2]));
+                ImGui::DragFloat3("Scale", entityScale, 0.05f, -255.0f, 255.0f);                                                        // Scale
+                ptrToSelectedEntity->transform.setLocalScale(glm::vec3(entityScale[0], entityScale[1], entityScale[2]));
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
+
+
+            // ----------------
+            // Light Properties
+            // ----------------
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ptrToSelectedEntity->pointLight.isEntityLight)
+            {
+                if (ImGui::CollapsingHeader("Light Properties"))
+                {
+                    ImGui::Indent();
+                    ImGui::ColorEdit4("Color", (float*)&ptrToSelectedEntity->pointLight.color, 0);                              // Color
+                    ImGui::DragFloat("Intensity", (float*)&ptrToSelectedEntity->pointLight.intensity, 0.05f, 0.0f, 100.0f);     // Intensity
+                    ImGui::DragFloat("Radius", (float*)&ptrToSelectedEntity->pointLight.radius, 0.05f, 0.0f, 100.0f);           // Radius
+                    ImGui::Unindent();
+                }
+            }
+            ImGui::End();
+        }
+
+
+        // -------------------
+        // 3. World Properties
+        // -------------------
+        {
+            ImGui::Begin("World Properties");
+
+
+            // -----------------
+            // Directional Light
+            // -----------------
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Directional Light"))
+            {
+                ImGui::Indent();
+                ImGui::DragFloat3("Direction", (float*)&lightDirectionalDirection1, 0.01f, -1, 1);          // Direction
+                ImGui::ColorEdit4("Color", (float*)&lightDirectionalColor1, 0);                             // Color
+                ImGui::DragFloat("Intensity", (float*)&directionalLightIntensity, 0.05f, 0.0f, 100.0f);     // Intensity
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
+
+
+            // ---------------
+            // Environment Map
+            // ---------------
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Environment map"))
+            {
+                ImGui::Indent();
+                if (ImGui::Button("Appartment", {150.0f, 25.0f}))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);        // Apartment
+                    iblSetup();
+                }
+                if (ImGui::Button("Pisa", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);            // Pisa
+                    iblSetup();
+                }
+                if (ImGui::Button("Canyon", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);        // Canyon
+                    iblSetup();
+                }
+                if (ImGui::Button("Loft", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/loft.hdr", "loftHDR", true);            // Loft
+                    iblSetup();
+                }
+                if (ImGui::Button("Path", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);            // Path
+                    iblSetup();
+                }
+                if (ImGui::Button("Circus", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/circus.hdr", "circusHDR", true);        // Circus
+                    iblSetup();
+                }
+                if (ImGui::Button("Hills", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);          // Hills
+                    iblSetup();
+                }
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
+
+
+            // ------------------------
+            // Post Processing Settings
+            // ------------------------
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Post Processing"))
+            {
+                ImGui::Indent();
+                ImGui::Checkbox("Ambient Occlusion", (bool*)&saoMode);      // SAO
+                ImGui::Checkbox("FXAA", (bool*)&fxaaMode);                  // FXAA
+                if (ImGui::TreeNode("Tonemapping"))                         // Tonemapping
+                {
+                    ImGui::RadioButton("Reinhard", &tonemappingMode, 1);
+                    ImGui::RadioButton("Filmic", &tonemappingMode, 2);
+                    ImGui::RadioButton("Uncharted", &tonemappingMode, 3);
+
+
+                    ImGui::TreePop();
+                }
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
+
 
             ImGui::End();
         }
 
-        // 3. Viewport
+        // -----------
+        // 4. Viewport
+        // -----------
         {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
             ImGui::Begin("Viewport");
             ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+
 
             if (viewportHeight != viewportPanelSize.y || viewportWidth != viewportPanelSize.x) 
             {
@@ -871,33 +1042,13 @@ int main()
                 viewportHeight = viewportPanelSize.y;
 
 
-                //---------------
-                // G-Buffer setup
-                //---------------
+                //--------------------
+                // Render Buffer setup
+                //--------------------
                 gBufferSetup();
-
-
-                //------------
-                // SAO setup
-                //------------
                 saoSetup();
-
-
-                //---------------------
-                // Postprocessing setup
-                //---------------------
                 postprocessSetup();
-
-
-                //---------------------
-                // Screen setup
-                //---------------------
                 screenSetup();
-
-
-                //----------
-                // IBL setup
-                //----------
                 iblSetup();
 
 
@@ -905,19 +1056,26 @@ int main()
                 printf("Viewport: %d, %d\n\n", viewportWidth, viewportHeight);
             }
 
+
             if (ImGui::IsWindowFocused())
                 mouseHoveringViewport = true;
             else
                 mouseHoveringViewport = false;
 
+
             // Because I use the texture from OpenGL, I need to invert the V from the UV.
             ImGui::Image((void*)screenBuffer, ImVec2{ (float)viewportWidth, (float)viewportHeight }, ImVec2(0, 1), ImVec2(1, 0));
 
+
+            // ------
             // Gizmos
+            // ------
             ImGuizmo::SetOrthographic(false);
             ImGuizmo::SetDrawlist();
 
+
             ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, viewportWidth, viewportHeight);
+
 
             glm::mat4 transform = ptrToSelectedEntity->transform.getTranslation();
             glm::vec3 posDiff = (glm::vec3)transform[3];
@@ -926,25 +1084,29 @@ int main()
             posDiff -= (glm::vec3)transform[3];
             localPos -= posDiff;
 
+
             if (ImGuizmo::IsUsing())
             {
                 glm::vec3 translation, rotation, scale;
                 DecomposeTransform(transform, translation, rotation, scale);
                 rotation += ptrToSelectedEntity->transform.getLocalRotation();
 
+
+                // Setting Transform values
                 ptrToSelectedEntity->transform.setLocalPosition(localPos);
                 //ptrToSelectedEntity->transform.setLocalRotation(rotation);
                 ptrToSelectedEntity->transform.setLocalScale(scale);
             }
 
+
             ImGui::PopStyleVar();
             ImGui::End();
         }
 
-        //ImGui::ShowDemoWindow();
 
         // Close Dockspace
         ImGui::End();
+
 
         //ImGUI Render
         ImGui::Render();
@@ -1228,8 +1390,8 @@ bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity
             node_flags |= ImGuiTreeNodeFlags_Selected;
         }
 
-        node_flags |= ImGuiTreeNodeFlags_Leaf; // ImGuiTreeNodeFlags_Bullet
-        ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);
+        node_flags |= ImGuiTreeNodeFlags_Leaf;   // ImGuiTreeNodeFlags_Bullet
+        ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);     // New Tree Child Node
         deletedEntity = rightClickMenu(parent);
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
@@ -1249,7 +1411,7 @@ bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity
     }
 
     // Render Entity in Hierarchy
-    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);
+    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);    // New Tree Node
     deletedEntity = rightClickMenu(parent);
     if (ImGui::IsItemClicked() || ImGui::IsItemToggledOpen())
     {

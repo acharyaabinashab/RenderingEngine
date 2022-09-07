@@ -13,7 +13,7 @@ struct LightObject
 {
     vec3 position;
     vec3 direction;
-    vec4 color;
+    vec3 color;
     float radius;
 };
 

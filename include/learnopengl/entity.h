@@ -396,7 +396,8 @@ Sphere generateSphereBV(const Model& model)
 struct LightEntity 
 {
 	bool isEntityLight = false;
-	glm::vec4 color = glm::vec4(2.0f);
+	glm::vec3 color = glm::vec3(1.0f);
+	float intensity = 1.0f;
 	float radius = 10.0f;
 };
 
@@ -559,7 +560,10 @@ public:
 			glm::vec3 lightPositionViewSpace = glm::vec3(camera.GetViewMatrix() * glm::vec4(transform.getGlobalPosition(), 1.0f));
 
 			glUniform3f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].position").c_str()), lightPositionViewSpace.x, lightPositionViewSpace.y, lightPositionViewSpace.z);
-			glUniform4f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].color").c_str()), pointLight.color.x, pointLight.color.y, pointLight.color.z, pointLight.color.w);
+			glUniform3f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].color").c_str()), 
+				pointLight.color.x * pointLight.intensity, 
+				pointLight.color.y * pointLight.intensity,
+				pointLight.color.z * pointLight.intensity);
 			glUniform1f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].radius").c_str()), pointLight.radius);
 			total++;
 		}
