@@ -47,7 +47,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
-void drawSceneGraph(Entity& parent, Shader& ourShader);
 bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity);
 bool rightClickMenu(Entity& m_entity);
 bool DecomposeTransform(const glm::mat4& transform, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale);
@@ -69,7 +68,7 @@ unsigned int viewportHeight = 900;
 
 // camera
 Camera camera(glm::vec3(0.0f, 6.0f, 4.0f));
-float lastX = SCR_WIDTH / 2.0f; // for glfw window not imgui window
+float lastX = SCR_WIDTH / 2.0f;     // for glfw window not imgui window
 float lastY = SCR_HEIGHT / 2.0f;
 bool mouseDragEnabled = false;
 
@@ -127,7 +126,7 @@ bool keys[1024];
 
 float directionalLightIntensity = 1.0f;
 glm::vec3 albedoColor = glm::vec3(1.0f);
-glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
+glm::vec3 materialF0 = glm::vec3(0.04f);    // UE4 dielectric
 glm::vec3 lightDirectionalDirection1 = glm::vec3(-0.2f, -1.0f, -0.3f);
 glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
 glm::vec3 modelPosition = glm::vec3(0.0f);
@@ -185,12 +184,13 @@ Model sponzaModel;
 Model backPackModel;
 Model dinosaurModel;
 
-int selected_hierarchy_node = 0; // select the scene on start
+int selected_hierarchy_node = 0;    // select the scene on start
 int gizmoType = 0;
 bool mouseHoveringViewport = false;
 
 int main()
 {
+    // ------------------------------
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
@@ -199,6 +199,8 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwSwapInterval(0);
 
+
+    // --------------------
     // glfw window creation
     // --------------------
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Rendering Engine", NULL, NULL);
@@ -214,6 +216,8 @@ int main()
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
+
+    // ---------------------------------------
     // glad: load all OpenGL function pointers
     // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -222,21 +226,16 @@ int main()
         return -1;
     }
 
-    // It is initialized here because it needs the glad loader to finish for it to work
-    // Also doesn't work when this is called from outside the function from where it is declared
-    planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
-    rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
-    sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
-    backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
-    //dinosaurModel = Model(FileSystem::getPath("resources/objects/dinosaur/Dinosaur_texture.obj"));
-    std::cout << "Loaded all Models" << "\n";
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     //stbi_set_flip_vertically_on_load(true);
 
+
+    // -----------------------------
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+
 
     // ------------
     // imgui: setup
@@ -247,18 +246,16 @@ int main()
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init((char*)glGetString(4.0)); // make it same as glfwWindowHint
+    ImGui_ImplOpenGL3_Init((char*)glGetString(4.0));    // make it same as glfwWindowHint
 
-    // build and compile shaders
-    // -------------------------
-    Shader ourShader("src/1.model_loading.vs", "src/1.model_loading.fs");
 
     // -------------
-    // load entities
+    // load entities : [ Replace this with custom new scene ]
     // -------------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
     Entity scene = Entity("Scene Root");
     scene.transform.setLocalPosition({ 0, 0, 0 });
+
 
     const float scale = 0.75f;
     {
@@ -266,54 +263,50 @@ int main()
         Entity* lastEntity = scene.children.back().get();
         lastEntity->transform.setLocalScale({ 0.25f, 0.25f, 0.25f });
 
+
         for (unsigned int i = 0; i < 10; ++i)
         {
             lastEntity->addChild(true, "New Light");
             lastEntity->addChild(model, "New Child");
-            //Set tranform values
+
+
+            //Set tranform values of light
             lastEntity->children.front().get()->transform.setLocalPosition({ -10, 0, 0 });
             lastEntity->children.front().get()->transform.setLocalScale({ scale, scale, scale });
 
-            //Set tranform values
+
+            //Set tranform values of model entity
             lastEntity->children.back().get()->transform.setLocalPosition({ -10, 4, 0 });
             lastEntity->children.back().get()->transform.setLocalScale({ scale, scale, scale });
+
 
             lastEntity = lastEntity->children.back().get();
         }
     }
-
-    scene.addChild(sponzaModel, "Sponza Environment");
-    scene.children.back().get()->transform.setLocalScale({0.01, 0.01, 0.01});
 
 
     //----------
     // Shader(s)
     //----------
     gBufferShader.setShader("resources/shaders/gBuffer.vert", "resources/shaders/gBuffer.frag");
+    saoShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/sao.frag");
+    saoBlurShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/saoBlur.frag");
     latlongToCubeShader.setShader("resources/shaders/latlongToCube.vert", "resources/shaders/latlongToCube.frag");
-
-    simpleShader.setShader("resources/shaders/lighting/simple.vert", "resources/shaders/lighting/simple.frag");
-    lightingBRDFShader.setShader("resources/shaders/lighting/lightingBRDF.vert", "resources/shaders/lighting/lightingBRDF.frag");
     irradianceIBLShader.setShader("resources/shaders/lighting/irradianceIBL.vert", "resources/shaders/lighting/irradianceIBL.frag");
     prefilterIBLShader.setShader("resources/shaders/lighting/prefilterIBL.vert", "resources/shaders/lighting/prefilterIBL.frag");
     integrateIBLShader.setShader("resources/shaders/lighting/integrateIBL.vert", "resources/shaders/lighting/integrateIBL.frag");
-
+    lightingBRDFShader.setShader("resources/shaders/lighting/lightingBRDF.vert", "resources/shaders/lighting/lightingBRDF.frag");
     firstpassPPShader.setShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/firstpass.frag");
-    saoShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/sao.frag");
-    saoBlurShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/saoBlur.frag");
+    simpleShader.setShader("resources/shaders/lighting/simple.vert", "resources/shaders/lighting/simple.frag");
+    cout << "Shaders Compiled \n";
 
 
-    //-----------
+    // -----------
     // Textures(s)
-    //-----------
-    objectAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
-    objectNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
-    objectRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
-    objectMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
-    objectAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
-
+    // -----------
+    // Environment Map HDRI Setup
+    // --------------------------
     envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);
-
     envMapCube.setTextureCube(512, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
     envMapIrradiance.setTextureCube(32, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR);
     envMapPrefilter.setTextureCube(128, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
@@ -326,11 +319,6 @@ int main()
     //---------------
     envCubeRender.setShape("cube", glm::vec3(0.0f));
     quadRender.setShape("quad", glm::vec3(0.0f));
-
-
-    //-------
-    // Skybox
-    //-------
 
 
     //---------------------------------------------------------
@@ -347,52 +335,37 @@ int main()
     glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "envMapPrefilter"), 7);
     glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "envMapLUT"), 8);
 
+
     saoShader.use();
     glUniform1i(glGetUniformLocation(saoShader.ID, "gPosition"), 0);
     glUniform1i(glGetUniformLocation(saoShader.ID, "gNormal"), 1);
+
 
     firstpassPPShader.use();
     glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "sao"), 1);
     glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "gEffects"), 2);
 
+
     latlongToCubeShader.use();
     glUniform1i(glGetUniformLocation(latlongToCubeShader.ID, "envMap"), 0);
 
+
     irradianceIBLShader.use();
     glUniform1i(glGetUniformLocation(irradianceIBLShader.ID, "envMap"), 0);
+
 
     prefilterIBLShader.use();
     glUniform1i(glGetUniformLocation(prefilterIBLShader.ID, "envMap"), 0);
 
 
-    //---------------
-    // G-Buffer setup
-    //---------------
-    gBufferSetup();
-
-
-    //------------
-    // SAO setup
-    //------------
-    saoSetup();
-
-
-    //---------------------
-    // Postprocessing setup
-    //---------------------
-    postprocessSetup();
-
-
-    //---------------------
-    // Screen setup
-    //---------------------
-    screenSetup();
-
-
-    //----------
-    // IBL setup
-    //----------
-    iblSetup();
+    // --------------------
+    // Render buffers setup
+    // --------------------
+    gBufferSetup();     // G-Buffer setup
+    saoSetup();         // SAO setup
+    postprocessSetup(); // Postprocessing setup
+    screenSetup();      // Screen setup
+    iblSetup();         // IBL setup
 
 
     //------------------------------
@@ -401,12 +374,14 @@ int main()
     GLuint64 startGeometryTime, startLightingTime, startSAOTime, startPostprocessTime, startForwardTime, startGUITime;
     GLuint64 stopGeometryTime, stopLightingTime, stopSAOTime, stopPostprocessTime, stopForwardTime, stopGUITime;
 
+
     unsigned int queryIDGeometry[2];
     unsigned int queryIDLighting[2];
     unsigned int queryIDSAO[2];
     unsigned int queryIDPostprocess[2];
     unsigned int queryIDForward[2];
     unsigned int queryIDGUI[2];
+
 
     glGenQueries(2, queryIDGeometry);
     glGenQueries(2, queryIDLighting);
@@ -418,7 +393,20 @@ int main()
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    Model backpack(FileSystem::getPath("resources/objects/backpack/backpack.obj")); // Doing this here prevents UV fckup
+
+    // ---------------------
+    // Models Initialization
+    // ---------------------
+    // It is initialized here because it needs the glad loader to finish for it to work
+    // Also doesn't work when this is called from outside the function from where it is declared
+    // Doing this here also prevents UV fckup (why tho?)
+    // -------------------------------------------------
+    planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
+    rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
+    sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
+    backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
+    //dinosaurModel = Model(FileSystem::getPath("resources/objects/dinosaur/Dinosaur_texture.obj"));
+    std::cout << "Loaded all Models" << "\n";
 
 
     // -----------
@@ -433,84 +421,59 @@ int main()
         lastFrame = currentFrame;
 
 
-        // -----
-        // Input
-        // -----
-        processInput(window);
-
-        // Update model transforms changed in previouse frame
-        scene.updateSelfAndChild();
+        processInput(window);   // User input given to window created by glfw
 
 
-        // -----------------
-        // Rendering Process
-        // -----------------
+        scene.updateSelfAndChild(); // Update model transforms changed in previouse frame
 
-        //------------------------
-        // Geometry Pass rendering
-        //------------------------
-        glQueryCounter(queryIDGeometry[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        //Camera Setup
+        // ------------
+        // Camera Setup
+        // ------------
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)viewportWidth / (float)viewportHeight, 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
         const Frustum camFrustum = createFrustumFromCamera(camera, (float)viewportWidth / (float)viewportHeight, glm::radians(camera.Zoom), 0.1f, 100.0f);
 
-        // Model(s) rendering
-        gBufferShader.use();
 
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        //------------------------
+        // Geometry Pass rendering
+        //------------------------
+        glQueryCounter(queryIDGeometry[0], GL_TIMESTAMP);   // Start geometry pass timer
+        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);         // Binding the framebuffer to gBuffer object so that the shader outputs to buffers inside gBuffer object
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glUniform3f(glGetUniformLocation(gBufferShader.ID, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);
 
-        // Material
-        // pbrMat.renderToShader();
+        gBufferShader.use();                                                                                                // Setting up resources used by gBufferShader
+        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));      // Camera Projection
+        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));                  // Camera View
+        glUniform3f(glGetUniformLocation(gBufferShader.ID, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);        // Default albedo Color white
 
-        glActiveTexture(GL_TEXTURE0);
-        objectAlbedo.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.ID, "texAlbedo"), 0);
-        glActiveTexture(GL_TEXTURE1);
-        objectNormal.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.ID, "texNormal"), 1);
-        glActiveTexture(GL_TEXTURE2);
-        objectRoughness.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.ID, "texRoughness"), 2);
-        glActiveTexture(GL_TEXTURE3);
-        objectMetalness.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.ID, "texMetalness"), 3);
-        glActiveTexture(GL_TEXTURE4);
-        objectAO.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.ID, "texAO"), 4);
 
-        // draw our Scene Graph
         unsigned int total = 0, display = 0;
-        scene.drawSelfAndChild(camFrustum, gBufferShader, display, total);
+        scene.drawSelfAndChild(camFrustum, gBufferShader, display, total);  // Draw our Scene Graph while passing remaining resources to the shader
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glQueryCounter(queryIDGeometry[1], GL_TIMESTAMP);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);               // Resets the non rendering framebuffer to direct to window framebuffer
+        glQueryCounter(queryIDGeometry[1], GL_TIMESTAMP);   // stop geometry pass timer
 
 
         //---------------
-        // sao rendering
+        // SAO rendering
         //---------------
-        glQueryCounter(queryIDSAO[0], GL_TIMESTAMP);
+        glQueryCounter(queryIDSAO[0], GL_TIMESTAMP);    // Start SAO pass timer
         glBindFramebuffer(GL_FRAMEBUFFER, saoFBO);
         glClear(GL_COLOR_BUFFER_BIT);
+
 
         if (saoMode)
         {
             // SAO noisy texture
             saoShader.use();
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE0);                                                       // Setting up resources used by saoShader
+            glBindTexture(GL_TEXTURE_2D, gPosition);                                                // pass gPosition texture from gBuffer to sao shader (generated by geometry pass)
             glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, gNormal);
-
-            glUniform1i(glGetUniformLocation(saoShader.ID, "saoSamples"), saoSamples);
+            glBindTexture(GL_TEXTURE_2D, gNormal);                                                  // pass gNormal texture from gBuffer to sao shader (generated by geometry pass)
+            glUniform1i(glGetUniformLocation(saoShader.ID, "saoSamples"), saoSamples);              // setting sao variables ...
             glUniform1f(glGetUniformLocation(saoShader.ID, "saoRadius"), saoRadius);
             glUniform1i(glGetUniformLocation(saoShader.ID, "saoTurns"), saoTurns);
             glUniform1f(glGetUniformLocation(saoShader.ID, "saoBias"), saoBias);
@@ -518,59 +481,63 @@ int main()
             glUniform1f(glGetUniformLocation(saoShader.ID, "saoContrast"), saoContrast);
             glUniform1i(glGetUniformLocation(saoShader.ID, "viewportWidth"), viewportWidth);
             glUniform1i(glGetUniformLocation(saoShader.ID, "viewportHeight"), viewportHeight);
+            quadRender.drawShape();                                                             // Apply saoShader over the whole screen
 
-            quadRender.drawShape();
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+
             // SAO blur pass
-            glBindFramebuffer(GL_FRAMEBUFFER, saoBlurFBO);
+            glBindFramebuffer(GL_FRAMEBUFFER, saoBlurFBO);  // Separate frame buffer object for blurred SAO
             glClear(GL_COLOR_BUFFER_BIT);
 
-            saoBlurShader.use();
 
+            saoBlurShader.use();
             glUniform1i(glGetUniformLocation(saoBlurShader.ID, "saoBlurSize"), saoBlurSize);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, saoBuffer);
-
             quadRender.drawShape();
         }
 
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glQueryCounter(queryIDSAO[1], GL_TIMESTAMP);
+        glQueryCounter(queryIDSAO[1], GL_TIMESTAMP);    // Stop SAO pass timer
 
 
         //------------------------
         // Lighting Pass rendering
         //------------------------
-        glQueryCounter(queryIDLighting[0], GL_TIMESTAMP);
+        glQueryCounter(queryIDLighting[0], GL_TIMESTAMP);   // Start lighting pass timer
         glBindFramebuffer(GL_FRAMEBUFFER, postprocessFBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        lightingBRDFShader.use();
 
+        lightingBRDFShader.use();                       // Setting up resources used by lighting pass shader
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gPosition);
+        glBindTexture(GL_TEXTURE_2D, gPosition);            // Position of vertex
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gAlbedo);
+        glBindTexture(GL_TEXTURE_2D, gAlbedo);              // Albedo & Roughness (in .a)
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gNormal);
+        glBindTexture(GL_TEXTURE_2D, gNormal);              // Normal & Metalness (in .a)
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, gEffects);
+        glBindTexture(GL_TEXTURE_2D, gEffects);             // Texture Ambient Occlusion
         glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
+        glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);        // Screenspace AO
         glActiveTexture(GL_TEXTURE5);
-        envMapHDR.useTexture();
+        envMapHDR.useTexture();                             // Environment Map for background
         glActiveTexture(GL_TEXTURE6);
-        envMapIrradiance.useTexture();
+        envMapIrradiance.useTexture();                      // Environment Map sample for ambient lighting
         glActiveTexture(GL_TEXTURE7);
-        envMapPrefilter.useTexture();
+        envMapPrefilter.useTexture();                       // Env MipMap 
         glActiveTexture(GL_TEXTURE8);
-        envMapLUT.useTexture();
+        envMapLUT.useTexture();                             // Environment Map for reflection
+
 
         unsigned int totalLights = 0;
-        scene.drawPointLights(lightingBRDFShader, totalLights, camera);
+        scene.drawPointLights(lightingBRDFShader, totalLights, camera); // point light info pass to shader
 
+        
+        // Directional light info pass to shader
         glUniform3f(glGetUniformLocation(lightingBRDFShader.ID, "lightDirectionalArray[0].color"),
             lightDirectionalColor1.x * directionalLightIntensity,
             lightDirectionalColor1.y * directionalLightIntensity,
@@ -580,70 +547,72 @@ int main()
             lightDirectionalDirection1.y,
             lightDirectionalDirection1.z);
 
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "materialRoughness"), materialRoughness);
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "materialMetallicity"), materialMetallicity);
-        glUniform3f(glGetUniformLocation(lightingBRDFShader.ID, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "ambientIntensity"), ambientIntensity);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "gBufferView"), gBufferView);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "pointMode"), pointMode);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "directionalMode"), directionalMode);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "iblMode"), iblMode);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "attenuationMode"), attenuationMode);
 
-        quadRender.drawShape();
+        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));      // Camera view for vert shader
+        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));  // Camera projection for vert shader
+        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));                             // Camera view for frag shader
+        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "materialRoughness"), materialRoughness);                                       // [ Not set up ]
+        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "materialMetallicity"), materialMetallicity);                                   // [ Not set up ]
+        glUniform3f(glGetUniformLocation(lightingBRDFShader.ID, "materialF0"), materialF0.r, materialF0.g, materialF0.b);                       // Sth to do with fresnel effect
+        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "ambientIntensity"), ambientIntensity);                                         // [ Not set up ]
+        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "gBufferView"), gBufferView);                                                   // Choose differend debug view, eg: normal, SAO, metallic, etc.
+        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "pointMode"), pointMode);                                                       // Point light flag
+        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "directionalMode"), directionalMode);                                           // Directional light flag
+        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "iblMode"), iblMode);                                                           // Image Based Lighting flag
+        glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "attenuationMode"), attenuationMode);                                           // UE4 or Quadratic attenuation
+
+        quadRender.drawShape();     // Apply lighting pass over the whole screen
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);
+        glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);   // Stop lighting pass timer
 
 
         //-------------------------------
         // Post-processing Pass rendering
         //-------------------------------
-        glQueryCounter(queryIDPostprocess[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_FRAMEBUFFER, screenFBO);
+        glQueryCounter(queryIDPostprocess[0], GL_TIMESTAMP);    // Start post-processing pass timer
+        glBindFramebuffer(GL_FRAMEBUFFER, screenFBO);           // Setting up the buffer object used my ImGui viewport to render scene
         glClear(GL_COLOR_BUFFER_BIT);
 
-        firstpassPPShader.use();
-        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "gBufferView"), gBufferView);
-        glUniform2f(glGetUniformLocation(firstpassPPShader.ID, "screenTextureSize"), 1.0f / viewportWidth, 1.0f / viewportHeight);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraAperture"), cameraAperture);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraShutterSpeed"), cameraShutterSpeed);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraISO"), cameraISO);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "saoMode"), saoMode);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "fxaaMode"), fxaaMode);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "motionBlurMode"), motionBlurMode);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "motionBlurScale"), int(ImGui::GetIO().Framerate) / 60.0f);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "motionBlurMaxSamples"), motionBlurMaxSamples);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "tonemappingMode"), tonemappingMode);
+        firstpassPPShader.use();                                                                                                    // Setting up resources used by post processing
+        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "gBufferView"), gBufferView);                                            // Used as debug view flag to skip post processing
+        glUniform2f(glGetUniformLocation(firstpassPPShader.ID, "screenTextureSize"), 1.0f / viewportWidth, 1.0f / viewportHeight);      // For FXAA offset calculation
+        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraAperture"), cameraAperture);                                      // Physical camera aperture sim
+        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraShutterSpeed"), cameraShutterSpeed);                              // Physical camera shutter speed sim
+        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraISO"), cameraISO);                                                // Physical camera ISO sim
+        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "saoMode"), saoMode);                                                    // SAO flag
+        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "fxaaMode"), fxaaMode);                                                  // FXAA flag
+        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "motionBlurMode"), motionBlurMode);                                      // Motion Blur Flag
+        glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "motionBlurScale"), int(ImGui::GetIO().Framerate) / 60.0f);              // Motion Blur Scale
+        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "motionBlurMaxSamples"), motionBlurMaxSamples);                          // Motion Blur Samples
+        glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "tonemappingMode"), tonemappingMode);                                    // Tonemapping mode
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
+        glBindTexture(GL_TEXTURE_2D, postprocessBuffer);    // Result of lighting pass sent for post-processing
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
+        glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);        // SAO for post-processing
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gEffects);
+        glBindTexture(GL_TEXTURE_2D, gEffects);             // Texture AO for post-processing
 
-        quadRender.drawShape();
+        quadRender.drawShape();                             // Apply post-processing on whole screen
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glQueryCounter(queryIDPostprocess[1], GL_TIMESTAMP);
+        glQueryCounter(queryIDPostprocess[1], GL_TIMESTAMP);    // Stop post-processing pass timer
 
 
         //-----------------------
         // Forward Pass rendering
         //-----------------------
-        glQueryCounter(queryIDForward[0], GL_TIMESTAMP);
+        glQueryCounter(queryIDForward[0], GL_TIMESTAMP);    // Start timer for non PBR rendering
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
 
         // Copy the depth informations from the Geometry Pass into the default framebuffer
         glBlitFramebuffer(0, 0, viewportWidth, viewportHeight, 0, 0, viewportWidth, viewportHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        //// Shape(s) rendering
+        // TODO: Shape(s) rendering
         //if (pointMode)
         //{
         //    simpleShader.use();
@@ -658,7 +627,7 @@ int main()
         //            Light::lightPointList[i].lightMesh.drawShape(simpleShader, view, projection, camera);
         //    }
         //}
-        glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
+        glQueryCounter(queryIDForward[1], GL_TIMESTAMP);    // Stop timer for non PBR rendering
 
 
 #pragma region ImGUI Panels
@@ -680,19 +649,19 @@ int main()
         float entityScale[3];
 
 
-        //Setting Position
+        //Setting Position for selected entity
         entityPosition[0] = ptrToSelectedEntity->transform.getLocalPosition().x;
         entityPosition[1] = ptrToSelectedEntity->transform.getLocalPosition().y;
         entityPosition[2] = ptrToSelectedEntity->transform.getLocalPosition().z;
 
 
-        //Setting Roatation
+        //Setting Roatation for selected entity
         entityRotation[0] = ptrToSelectedEntity->transform.getLocalRotation().x;
         entityRotation[1] = ptrToSelectedEntity->transform.getLocalRotation().y;
         entityRotation[2] = ptrToSelectedEntity->transform.getLocalRotation().z;
 
 
-        //Setting Scale
+        //Setting Scale for selected entity
         entityScale[0] = ptrToSelectedEntity->transform.getLocalScale().x;
         entityScale[1] = ptrToSelectedEntity->transform.getLocalScale().y;
         entityScale[2] = ptrToSelectedEntity->transform.getLocalScale().z;
@@ -708,8 +677,10 @@ int main()
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
 
+        // ---------------------------------------------------------------------------------------------
         // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
         // because it would be confusing to have two docking targets within each others.
+        // ---------------------------------------------------------------------------------------------
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
         if (opt_fullscreen)
         {
@@ -728,17 +699,21 @@ int main()
         }
 
 
+        // ---------------------------------------------------------------------------------------------
         // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background
         // and handle the pass-thru hole, so we ask Begin() to not render a background.
+        // ---------------------------------------------------------------------------------------------
         if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
             window_flags |= ImGuiWindowFlags_NoBackground;
 
 
+        // ---------------------------------------------------------------------------------------------
         // Important: note that we proceed even if Begin() returns false (aka window is collapsed).
         // This is because we want to keep our DockSpace() active. If a DockSpace() is inactive,
         // all active windows docked into it will lose their parent and become undocked.
         // We cannot preserve the docking relationship between an active window and an inactive docking, otherwise
         // any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
+        // ---------------------------------------------------------------------------------------------
         if (!opt_padding)
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::Begin("DockSpace Demo", p_open, window_flags);
@@ -763,9 +738,10 @@ int main()
         {
             if (ImGui::BeginMenu("Options"))
             {
-
+                // ---------------------------------------------------------------------------------------------
                 // Disabling fullscreen would allow the window to be moved to the front of other windows,
                 // which we can't undo at the moment without finer window depth/z control.
+                // ---------------------------------------------------------------------------------------------
                 ImGui::MenuItem("Fullscreen", NULL, &opt_fullscreen);
                 ImGui::MenuItem("Padding", NULL, &opt_padding);
                 ImGui::Separator();
@@ -820,7 +796,7 @@ int main()
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
                 if (ImGui::MenuItem("Backpack")) {
-                    scene.addChild(backpack, "New Backpack");
+                    scene.addChild(backPackModel, "New Backpack");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
                 if (ImGui::MenuItem("PointLight")) {
@@ -944,9 +920,9 @@ int main()
             if (ImGui::CollapsingHeader("Directional Light"))
             {
                 ImGui::Indent();
-                ImGui::DragFloat3("Direction", (float*)&lightDirectionalDirection1, 0.01f, -1, 1);          // Direction
-                ImGui::ColorEdit4("Color", (float*)&lightDirectionalColor1, 0);                             // Color
-                ImGui::DragFloat("Intensity", (float*)&directionalLightIntensity, 0.05f, 0.0f, 100.0f);     // Intensity
+                ImGui::DragFloat3("Direction", (float*)&lightDirectionalDirection1, 0.01f, -1, 1);      // Direction
+                ImGui::ColorEdit4("Color", (float*)&lightDirectionalColor1, 0);                         // Color
+                ImGui::DragFloat("Intensity", (float*)&directionalLightIntensity, 0.05f, 0.0f, 100.0f); // Intensity
                 ImGui::Unindent();
             }
             ImGui::Spacing();
@@ -962,37 +938,37 @@ int main()
                 ImGui::Indent();
                 if (ImGui::Button("Appartment", {150.0f, 25.0f}))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);        // Apartment
+                    envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);    // Apartment
                     iblSetup();
                 }
                 if (ImGui::Button("Pisa", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);            // Pisa
+                    envMapHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);        // Pisa
                     iblSetup();
                 }
                 if (ImGui::Button("Canyon", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);        // Canyon
+                    envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);    // Canyon
                     iblSetup();
                 }
                 if (ImGui::Button("Loft", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/loft.hdr", "loftHDR", true);            // Loft
+                    envMapHDR.setTextureHDR("resources/textures/hdr/loft.hdr", "loftHDR", true);        // Loft
                     iblSetup();
                 }
                 if (ImGui::Button("Path", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);            // Path
+                    envMapHDR.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);        // Path
                     iblSetup();
                 }
                 if (ImGui::Button("Circus", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/circus.hdr", "circusHDR", true);        // Circus
+                    envMapHDR.setTextureHDR("resources/textures/hdr/circus.hdr", "circusHDR", true);    // Circus
                     iblSetup();
                 }
                 if (ImGui::Button("Hills", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);          // Hills
+                    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);      // Hills
                     iblSetup();
                 }
                 ImGui::Unindent();
@@ -1114,7 +1090,7 @@ int main()
 #pragma endregion Editor UI
 
 
-
+        // -------------------------------------------------------------------------------
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -1126,6 +1102,7 @@ int main()
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
+    // ------------------------------------------------------------------
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
     glfwTerminate();
@@ -1374,55 +1351,73 @@ void iblSetup()
     glViewport(0, 0, viewportWidth, viewportHeight);
 }
 
-bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity) {
-    bool deletedEntity = false;
+bool putEntityInSceneHierarchyPanel(Entity& entity, Entity*& ptrToSelectedEntity) 
+{
+    bool deletedEntity = false;                                             // Flag to skip rendering if entity deleted
+    int countChildrenEntities = entity.children.size();
+    static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow 
+        | ImGuiTreeNodeFlags_OpenOnDoubleClick 
+        | ImGuiTreeNodeFlags_SpanAvailWidth 
+        | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 
-    int countChildrenEntities = parent.children.size();
-    static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 
     ImGui::Indent();
 
-    if (countChildrenEntities <= 0) {
+
+    // ---------------------------
+    // If current entity is a leaf
+    // ---------------------------
+    if (countChildrenEntities <= 0)                     
+    {
         ImGuiTreeNodeFlags node_flags = base_flags;
-        if (parent.id == selected_hierarchy_node)
+        if (entity.id == selected_hierarchy_node)                                               // If that node is selected
         {
-            ptrToSelectedEntity = &parent;
-            node_flags |= ImGuiTreeNodeFlags_Selected;
+            ptrToSelectedEntity = &entity;
+            node_flags |= ImGuiTreeNodeFlags_Selected;                                              // Select that node in imgui
+        }
+        node_flags |= ImGuiTreeNodeFlags_Leaf;                                                  // Make the node a leaf
+
+
+        ImGui::TreeNodeEx((void*)(intptr_t)entity.id, node_flags, "%s", entity.entityName);     // New Tree Child Node as a leaf
+
+
+        deletedEntity = rightClickMenu(entity);                                                 // Right click menu for the leaf node rendered just before
+
+
+        if (ImGui::IsItemClicked())                                                             // If the tree node create just before is clicked
+        {
+            ptrToSelectedEntity = &entity;                                                          // Set the pointer to selected entity as itself
+            selected_hierarchy_node = entity.id;                                                    // Set the selected node id
         }
 
-        node_flags |= ImGuiTreeNodeFlags_Leaf;   // ImGuiTreeNodeFlags_Bullet
-        ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);     // New Tree Child Node
-        deletedEntity = rightClickMenu(parent);
-        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-        {
-            ptrToSelectedEntity = &parent;
-            selected_hierarchy_node = parent.id;
-        }
-        ImGui::Unindent(); // After leaf Node - also offsets indent at beginning done when more than one leaf children
-        if (deletedEntity) return true;
-        return false;
+
+        ImGui::Unindent();                                                                      // After leaf Node - also offsets indent at beginning done when more than one leaf children
+        if (deletedEntity) return true;                                                         // Skip rendering UI for one frame if it's deleted
+        return false;                                                                           // Else continue rendering UI as is
     }
 
+
     ImGuiTreeNodeFlags node_flags = base_flags;
-    if (parent.id == selected_hierarchy_node)
+    if (entity.id == selected_hierarchy_node)
     {
-        ptrToSelectedEntity = &parent;
+        ptrToSelectedEntity = &entity;
         node_flags |= ImGuiTreeNodeFlags_Selected;
     }
 
+
     // Render Entity in Hierarchy
-    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)parent.id, node_flags, "%s", parent.entityName);    // New Tree Node
-    deletedEntity = rightClickMenu(parent);
+    bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)entity.id, node_flags, "%s", entity.entityName);    // New Tree Node
+    deletedEntity = rightClickMenu(entity);
     if (ImGui::IsItemClicked() || ImGui::IsItemToggledOpen())
     {
-        ptrToSelectedEntity = &parent;
-        selected_hierarchy_node = parent.id;
+        ptrToSelectedEntity = &entity;
+        selected_hierarchy_node = entity.id;
     }
     if (deletedEntity) return true;
 
     bool deletedChild = false;
     // Render Entity Children in hierarchy
-    for (auto it = parent.children.begin(); it != parent.children.end(); ++it)
+    for (auto it = entity.children.begin(); it != entity.children.end(); ++it)
     {
         //printf("\n %d", it);
         if (node_open)
