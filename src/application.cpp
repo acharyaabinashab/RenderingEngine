@@ -64,6 +64,8 @@ void iblSetup();
 // settings
 unsigned int SCR_WIDTH = 1400;
 unsigned int SCR_HEIGHT = 900;
+unsigned int viewportWidth = 1400;
+unsigned int viewportHeight = 900;
 
 // camera
 Camera camera(glm::vec3(0.0f, 6.0f, 4.0f));
@@ -451,9 +453,9 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //Camera Setup
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)viewportWidth / (float)viewportHeight, 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
-        const Frustum camFrustum = createFrustumFromCamera(camera, (float)SCR_WIDTH / (float)SCR_HEIGHT, glm::radians(camera.Zoom), 0.1f, 100.0f);
+        const Frustum camFrustum = createFrustumFromCamera(camera, (float)viewportWidth / (float)viewportHeight, glm::radians(camera.Zoom), 0.1f, 100.0f);
 
         // Model(s) rendering
         gBufferShader.use();
@@ -513,8 +515,8 @@ int main()
             glUniform1f(glGetUniformLocation(saoShader.ID, "saoBias"), saoBias);
             glUniform1f(glGetUniformLocation(saoShader.ID, "saoScale"), saoScale);
             glUniform1f(glGetUniformLocation(saoShader.ID, "saoContrast"), saoContrast);
-            glUniform1i(glGetUniformLocation(saoShader.ID, "viewportWidth"), SCR_WIDTH);
-            glUniform1i(glGetUniformLocation(saoShader.ID, "viewportHeight"), SCR_HEIGHT);
+            glUniform1i(glGetUniformLocation(saoShader.ID, "viewportWidth"), viewportWidth);
+            glUniform1i(glGetUniformLocation(saoShader.ID, "viewportHeight"), viewportHeight);
 
             quadRender.drawShape();
 
@@ -597,7 +599,7 @@ int main()
 
         firstpassPPShader.use();
         glUniform1i(glGetUniformLocation(firstpassPPShader.ID, "gBufferView"), gBufferView);
-        glUniform2f(glGetUniformLocation(firstpassPPShader.ID, "screenTextureSize"), 1.0f / SCR_WIDTH, 1.0f / SCR_HEIGHT);
+        glUniform2f(glGetUniformLocation(firstpassPPShader.ID, "screenTextureSize"), 1.0f / viewportWidth, 1.0f / viewportHeight);
         glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraAperture"), cameraAperture);
         glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraShutterSpeed"), cameraShutterSpeed);
         glUniform1f(glGetUniformLocation(firstpassPPShader.ID, "cameraISO"), cameraISO);
@@ -629,7 +631,7 @@ int main()
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
         // Copy the depth informations from the Geometry Pass into the default framebuffer
-        glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBlitFramebuffer(0, 0, viewportWidth, viewportHeight, 0, 0, viewportWidth, viewportHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         //// Shape(s) rendering
@@ -862,8 +864,46 @@ int main()
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
             ImGui::Begin("Viewport");
             ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-            SCR_WIDTH = viewportPanelSize.x;
-            SCR_HEIGHT = viewportPanelSize.y;
+
+            if (viewportHeight != viewportPanelSize.y || viewportWidth != viewportPanelSize.x) 
+            {
+                viewportWidth = viewportPanelSize.x;
+                viewportHeight = viewportPanelSize.y;
+
+
+                //---------------
+                // G-Buffer setup
+                //---------------
+                gBufferSetup();
+
+
+                //------------
+                // SAO setup
+                //------------
+                saoSetup();
+
+
+                //---------------------
+                // Postprocessing setup
+                //---------------------
+                postprocessSetup();
+
+
+                //---------------------
+                // Screen setup
+                //---------------------
+                screenSetup();
+
+
+                //----------
+                // IBL setup
+                //----------
+                iblSetup();
+
+
+                printf("Window: %d, %d\n", SCR_WIDTH, SCR_HEIGHT);
+                printf("Viewport: %d, %d\n\n", viewportWidth, viewportHeight);
+            }
 
             if (ImGui::IsWindowFocused())
                 mouseHoveringViewport = true;
@@ -871,13 +911,13 @@ int main()
                 mouseHoveringViewport = false;
 
             // Because I use the texture from OpenGL, I need to invert the V from the UV.
-            ImGui::Image((void*)screenBuffer, ImVec2{ (float)SCR_WIDTH, (float)SCR_HEIGHT }, ImVec2(0, 1), ImVec2(1, 0));
+            ImGui::Image((void*)screenBuffer, ImVec2{ (float)viewportWidth, (float)viewportHeight }, ImVec2(0, 1), ImVec2(1, 0));
 
             // Gizmos
             ImGuizmo::SetOrthographic(false);
             ImGuizmo::SetDrawlist();
 
-            ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, SCR_WIDTH, SCR_HEIGHT);
+            ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, viewportWidth, viewportHeight);
 
             glm::mat4 transform = ptrToSelectedEntity->transform.getTranslation();
             glm::vec3 posDiff = (glm::vec3)transform[3];
@@ -939,7 +979,7 @@ void gBufferSetup()
     // Position
     glGenTextures(1, &gPosition);
     glBindTexture(GL_TEXTURE_2D, gPosition);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, viewportWidth, viewportHeight, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -949,7 +989,7 @@ void gBufferSetup()
     // Albedo + Roughness
     glGenTextures(1, &gAlbedo);
     glBindTexture(GL_TEXTURE_2D, gAlbedo);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, viewportWidth, viewportHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gAlbedo, 0);
@@ -957,7 +997,7 @@ void gBufferSetup()
     // Normals + Metalness
     glGenTextures(1, &gNormal);
     glBindTexture(GL_TEXTURE_2D, gNormal);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, viewportWidth, viewportHeight, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gNormal, 0);
@@ -965,7 +1005,7 @@ void gBufferSetup()
     // Effects (AO + Velocity)
     glGenTextures(1, &gEffects);
     glBindTexture(GL_TEXTURE_2D, gEffects);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, viewportWidth, viewportHeight, 0, GL_RGB, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gEffects, 0);
@@ -977,7 +1017,7 @@ void gBufferSetup()
     // Z-Buffer
     glGenRenderbuffers(1, &zBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, zBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, viewportWidth, viewportHeight);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, zBuffer);
 
     // Check if the framebuffer is complete before continuing
@@ -993,7 +1033,7 @@ void saoSetup()
     glBindFramebuffer(GL_FRAMEBUFFER, saoFBO);
     glGenTextures(1, &saoBuffer);
     glBindTexture(GL_TEXTURE_2D, saoBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, viewportWidth, viewportHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, saoBuffer, 0);
@@ -1006,7 +1046,7 @@ void saoSetup()
     glBindFramebuffer(GL_FRAMEBUFFER, saoBlurFBO);
     glGenTextures(1, &saoBlurBuffer);
     glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, viewportWidth, viewportHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, saoBlurBuffer, 0);
@@ -1025,7 +1065,7 @@ void screenSetup()
 
     glGenTextures(1, &screenBuffer);
     glBindTexture(GL_TEXTURE_2D, screenBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, viewportWidth, viewportHeight, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenBuffer, 0);
@@ -1043,7 +1083,7 @@ void postprocessSetup()
 
     glGenTextures(1, &postprocessBuffer);
     glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, viewportWidth, viewportHeight, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, postprocessBuffer, 0);
@@ -1169,7 +1209,7 @@ void iblSetup()
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+    glViewport(0, 0, viewportWidth, viewportHeight);
 }
 
 bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity) {
@@ -1401,6 +1441,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
+    SCR_WIDTH = width;
+    SCR_HEIGHT = height;
 }
 
 // glfw: whenever the mouse moves, this callback is called
