@@ -563,8 +563,6 @@ public:
 			glUniform1f(glGetUniformLocation(shader.ID, ("lightPointArray[" + std::to_string(total) + "].radius").c_str()), pointLight.radius);
 			total++;
 		}
-
-		glUniform1f(glGetUniformLocation(shader.ID, "lightPointCounter"), 1);
 	}
 
 	int getTotalChildren() {

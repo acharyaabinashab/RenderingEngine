@@ -280,6 +280,7 @@ int main()
     }
 
     scene.addChild(sponzaModel, "Sponza Environment");
+    scene.children.back().get()->transform.setLocalScale({0.01, 0.01, 0.01});
 
 
     //----------
@@ -308,7 +309,7 @@ int main()
     objectMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
     objectAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
-    envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);
 
     envMapCube.setTextureCube(512, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
     envMapIrradiance.setTextureCube(32, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR);
@@ -566,6 +567,7 @@ int main()
 
         unsigned int totalLights = 0;
         scene.drawPointLights(lightingBRDFShader, totalLights, camera);
+        glUniform1f(glGetUniformLocation(lightingBRDFShader.ID, "lightPointCounter"), totalLights);
 
         glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
         glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
@@ -891,7 +893,7 @@ int main()
                 rotation += ptrToSelectedEntity->transform.getLocalRotation();
 
                 ptrToSelectedEntity->transform.setLocalPosition(localPos);
-                ptrToSelectedEntity->transform.setLocalRotation(rotation);
+                //ptrToSelectedEntity->transform.setLocalRotation(rotation);
                 ptrToSelectedEntity->transform.setLocalScale(scale);
             }
 
