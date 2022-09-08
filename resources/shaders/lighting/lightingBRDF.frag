@@ -88,7 +88,7 @@ void main()
 
         float NdotV = max(dot(N, V), 0.0001f);
 
-        // Fresnel (Schlick) computation (F term)
+        // 1esnel (Schlick) computation (F term)
         vec3 F0 = mix(materialF0, albedo, metalness);
         vec3 F = computeFresnelSchlick(NdotV, F0);
 
@@ -102,40 +102,45 @@ void main()
             // Point light(s) computation
             for (int i = 0; i < lightPointCounter; i++)
             {
-                vec3 L = normalize(lightPointArray[i].position - viewPos);
-                vec3 H = normalize(L + V);
+                float distance = length(lightPointArray[i].position - viewPos);
+                
+                if(distance < lightPointArray[i].radius)    // Skips the lights that dont cover any portion of screen
+                {
+                    vec3 L = normalize(lightPointArray[i].position - viewPos);
+                    vec3 H = normalize(L + V);
 
-                vec3 lightColor = colorLinear(lightPointArray[i].color.rgb);
-                float distanceL = length(lightPointArray[i].position - viewPos);
-                float attenuation;
+                    vec3 lightColor = colorLinear(lightPointArray[i].color.rgb);
+                    float distanceL = length(lightPointArray[i].position - viewPos);
+                    float attenuation;
 
-                if(attenuationMode == 1)
-                    attenuation = 1.0f / (distanceL * distanceL); // Quadratic attenuation
-                else if(attenuationMode == 2)
-                    attenuation = pow(saturate(1 - pow(distanceL / lightPointArray[i].radius, 4)), 2) / (distanceL * distanceL + 1); // UE4 attenuation
+                    if(attenuationMode == 1)
+                        attenuation = 1.0f / (distanceL * distanceL); // Quadratic attenuation
+                    else if(attenuationMode == 2)
+                        attenuation = pow(saturate(1 - pow(distanceL / lightPointArray[i].radius, 4)), 2) / (distanceL * distanceL + 1); // UE4 attenuation
 
-                // Light source dependent BRDF term(s)
-                float NdotL = saturate(dot(N, L));
+                    // Light source dependent BRDF term(s)
+                    float NdotL = saturate(dot(N, L));
 
-                // Radiance computation
-                vec3 kRadiance = lightColor * attenuation;
+                    // Radiance computation
+                    vec3 kRadiance = lightColor * attenuation;
 
-                // Diffuse component computation
-                diffuse = albedo / PI;
+                    // Diffuse component computation
+                    diffuse = albedo / PI;
 
-                // Disney diffuse term
-                float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
+                    // Disney diffuse term
+                    float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
 
-                // Distribution (GGX) computation (D term)
-                float D = computeDistributionGGX(N, H, roughness);
+                    // Distribution (GGX) computation (D term)
+                    float D = computeDistributionGGX(N, H, roughness);
 
-                // Geometry attenuation (GGX-Smith) computation (G term)
-                float G = computeGeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
+                    // Geometry attenuation (GGX-Smith) computation (G term)
+                    float G = computeGeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
 
-                // Specular component computation
-                specular = (F * D * G) / (4.0f * NdotL * NdotV + 0.0001f);
+                    // Specular component computation
+                    specular = (F * D * G) / (4.0f * NdotL * NdotV + 0.0001f);
 
-                color += (diffuse * kD + specular) * kRadiance * NdotL;
+                    color += (diffuse * kD + specular) * kRadiance * NdotL;
+                }
             }
         }
 
@@ -187,7 +192,7 @@ void main()
             vec2 brdfSampling = texture(envMapLUT, vec2(NdotV, roughness)).rg;
             specularRadiance *= F * brdfSampling.x + brdfSampling.y;
 
-//            vec3 ambientIBL = (diffuseIrradiance * kD);
+            // vec3 ambientIBL = (diffuseIrradiance * kD);
             vec3 ambientIBL = (diffuseIrradiance * kD) + specularRadiance;
 
             color += ambientIBL;

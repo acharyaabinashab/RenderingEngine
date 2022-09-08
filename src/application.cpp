@@ -197,7 +197,6 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwSwapInterval(0);
 
 
     // --------------------
@@ -215,6 +214,7 @@ int main()
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSwapInterval(0);                                                // Disable Vsync
 
 
     // ---------------------------------------
@@ -259,7 +259,7 @@ int main()
 
     const float scale = 0.75f;
     {
-        scene.addChild(planetModel, "Planets");
+        scene.addChild(model, "Planets");
         Entity* lastEntity = scene.children.back().get();
         lastEntity->transform.setLocalScale({ 0.25f, 0.25f, 0.25f });
 
@@ -306,7 +306,7 @@ int main()
     // -----------
     // Environment Map HDRI Setup
     // --------------------------
-    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);
+    envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);
     envMapCube.setTextureCube(512, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
     envMapIrradiance.setTextureCube(32, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR);
     envMapPrefilter.setTextureCube(128, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
@@ -451,6 +451,7 @@ int main()
 
         unsigned int total = 0, display = 0;
         scene.drawSelfAndChild(camFrustum, gBufferShader, display, total);  // Draw our Scene Graph while passing remaining resources to the shader
+        std::cout << "Total process in CPU : " << total << " / Total send to GPU : " << display << std::endl;
 
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);               // Resets the non rendering framebuffer to direct to window framebuffer
@@ -534,18 +535,19 @@ int main()
 
 
         unsigned int totalLights = 0;
-        scene.drawPointLights(lightingBRDFShader, totalLights, camera); // point light info pass to shader
+        scene.drawPointLights(lightingBRDFShader, totalLights, camera);     // point light info pass to shader
 
         
         // Directional light info pass to shader
+        glm::vec3 lightDirectionViewSpace = glm::vec3(camera.GetViewMatrix() * glm::vec4(lightDirectionalDirection1, 0.0f));
         glUniform3f(glGetUniformLocation(lightingBRDFShader.ID, "lightDirectionalArray[0].color"),
             lightDirectionalColor1.x * directionalLightIntensity,
             lightDirectionalColor1.y * directionalLightIntensity,
             lightDirectionalColor1.z * directionalLightIntensity);
         glUniform3f(glGetUniformLocation(lightingBRDFShader.ID, "lightDirectionalArray[0].direction"),
-            lightDirectionalDirection1.x,
-            lightDirectionalDirection1.y,
-            lightDirectionalDirection1.z);
+            lightDirectionViewSpace.x,
+            lightDirectionViewSpace.y,
+            lightDirectionViewSpace.z);
 
 
         glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.ID, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));      // Camera view for vert shader
@@ -561,7 +563,9 @@ int main()
         glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "iblMode"), iblMode);                                                           // Image Based Lighting flag
         glUniform1i(glGetUniformLocation(lightingBRDFShader.ID, "attenuationMode"), attenuationMode);                                           // UE4 or Quadratic attenuation
 
+
         quadRender.drawShape();     // Apply lighting pass over the whole screen
+
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);   // Stop lighting pass timer
@@ -809,10 +813,6 @@ int main()
                 }
                 ImGui::EndPopup();
             }
-
-
-            ImGui::SameLine();
-            ImGui::Text("(%.1f FPS)", ImGui::GetIO().Framerate);
             ImGui::Spacing();
 
 
@@ -1079,15 +1079,106 @@ int main()
             ImGui::End();
         }
 
+        
+        // ------------
+        // 5. Profiling
+        // ------------
+        {
+            ImGui::Begin("Profiling");
+
+
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Profiling"))
+            {
+                ImGui::Indent();
+                ImGui::Text("Geometry Pass :    %.4f ms", deltaGeometryTime);
+                ImGui::Text("Lighting Pass :    %.4f ms", deltaLightingTime);
+                ImGui::Text("SAO Pass :         %.4f ms", deltaSAOTime);
+                ImGui::Text("Postprocess Pass : %.4f ms", deltaPostprocessTime);
+                ImGui::Text("Forward Pass :     %.4f ms", deltaForwardTime);
+                ImGui::Text("GUI Pass :         %.4f ms", deltaGUITime);
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
+
+
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Application Info"))
+            {
+                char* glInfos = (char*)glGetString(GL_VERSION);
+                char* hardwareInfos = (char*)glGetString(GL_RENDERER);
+
+
+                ImGui::Indent();
+                ImGui::Text("OpenGL Version :");
+                ImGui::Text(glInfos);
+                ImGui::Text("Hardware Informations :");
+                ImGui::Text(hardwareInfos);
+                ImGui::Text("\nFramerate %.2f FPS / Frametime %.4f ms", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+                ImGui::Unindent();
+            }
+
+
+            ImGui::End();
+        }
+
 
         // Close Dockspace
         ImGui::End();
 
 
         //ImGUI Render
+        glQueryCounter(queryIDGUI[0], GL_TIMESTAMP);
         ImGui::Render();
+        glQueryCounter(queryIDGUI[1], GL_TIMESTAMP);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 #pragma endregion Editor UI
+
+
+        //--------------
+        // GPU profiling
+        //--------------
+        GLint stopGeometryTimerAvailable = 0;
+        GLint stopLightingTimerAvailable = 0;
+        GLint stopSAOTimerAvailable = 0;
+        GLint stopPostprocessTimerAvailable = 0;
+        GLint stopForwardTimerAvailable = 0;
+        GLint stopGUITimerAvailable = 0;
+
+
+        while (!stopGeometryTimerAvailable && !stopLightingTimerAvailable && !stopSAOTimerAvailable && !stopPostprocessTimerAvailable && !stopForwardTimerAvailable && !stopGUITimerAvailable)
+        {
+            glGetQueryObjectiv(queryIDGeometry[1], GL_QUERY_RESULT_AVAILABLE, &stopGeometryTimerAvailable);
+            glGetQueryObjectiv(queryIDLighting[1], GL_QUERY_RESULT_AVAILABLE, &stopLightingTimerAvailable);
+            glGetQueryObjectiv(queryIDSAO[1], GL_QUERY_RESULT_AVAILABLE, &stopSAOTimerAvailable);
+            glGetQueryObjectiv(queryIDPostprocess[1], GL_QUERY_RESULT_AVAILABLE, &stopPostprocessTimerAvailable);
+            glGetQueryObjectiv(queryIDForward[1], GL_QUERY_RESULT_AVAILABLE, &stopForwardTimerAvailable);
+            glGetQueryObjectiv(queryIDGUI[1], GL_QUERY_RESULT_AVAILABLE, &stopGUITimerAvailable);
+        }
+
+
+        glGetQueryObjectui64v(queryIDGeometry[0], GL_QUERY_RESULT, &startGeometryTime);
+        glGetQueryObjectui64v(queryIDGeometry[1], GL_QUERY_RESULT, &stopGeometryTime);
+        glGetQueryObjectui64v(queryIDLighting[0], GL_QUERY_RESULT, &startLightingTime);
+        glGetQueryObjectui64v(queryIDLighting[1], GL_QUERY_RESULT, &stopLightingTime);
+        glGetQueryObjectui64v(queryIDSAO[0], GL_QUERY_RESULT, &startSAOTime);
+        glGetQueryObjectui64v(queryIDSAO[1], GL_QUERY_RESULT, &stopSAOTime);
+        glGetQueryObjectui64v(queryIDPostprocess[0], GL_QUERY_RESULT, &startPostprocessTime);
+        glGetQueryObjectui64v(queryIDPostprocess[1], GL_QUERY_RESULT, &stopPostprocessTime);
+        glGetQueryObjectui64v(queryIDForward[0], GL_QUERY_RESULT, &startForwardTime);
+        glGetQueryObjectui64v(queryIDForward[1], GL_QUERY_RESULT, &stopForwardTime);
+        glGetQueryObjectui64v(queryIDGUI[0], GL_QUERY_RESULT, &startGUITime);
+        glGetQueryObjectui64v(queryIDGUI[1], GL_QUERY_RESULT, &stopGUITime);
+
+
+        deltaGeometryTime = (stopGeometryTime - startGeometryTime) / 1000000.0;
+        deltaLightingTime = (stopLightingTime - startLightingTime) / 1000000.0;
+        deltaSAOTime = (stopSAOTime - startSAOTime) / 1000000.0;
+        deltaPostprocessTime = (stopPostprocessTime - startPostprocessTime) / 1000000.0;
+        deltaForwardTime = (stopForwardTime - startForwardTime) / 1000000.0;
+        deltaGUITime = (stopGUITime - startGUITime) / 1000000.0;
 
 
         // -------------------------------------------------------------------------------
@@ -1101,6 +1192,7 @@ int main()
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
 
     // ------------------------------------------------------------------
     // glfw: terminate, clearing all previously allocated GLFW resources.

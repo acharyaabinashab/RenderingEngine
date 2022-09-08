@@ -532,7 +532,6 @@ public:
 
 	void drawSelfAndChild(const Frustum& frustum, Shader& ourShader, unsigned int& display, unsigned int& total)
 	{
-		total++;
 		for (auto&& child : children)
 		{
 			child->drawSelfAndChild(frustum, ourShader, display, total);
@@ -540,6 +539,8 @@ public:
 
 		if (pModel == nullptr)
 			return;
+		else
+			total++;
 
 		if (boundingVolume->isOnFrustum(frustum, transform))
 		{
