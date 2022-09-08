@@ -123,6 +123,7 @@ bool screenMode = false;
 bool firstMouse = true;
 bool guiIsOpen = true;
 bool keys[1024];
+bool vsync = true;
 
 float directionalLightIntensity = 1.0f;
 glm::vec3 albedoColor = glm::vec3(1.0f);
@@ -214,7 +215,7 @@ int main()
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
-    glfwSwapInterval(0);                                                // Disable Vsync
+    glfwSwapInterval(1);                                                // Disable Vsync
 
 
     // ---------------------------------------
@@ -421,6 +422,12 @@ int main()
         lastFrame = currentFrame;
 
 
+        // Scene Stats
+        unsigned int totalModelsInScene = 0;
+        unsigned int displayedModels = 0;
+        unsigned int totalLightsInScene = 0;
+
+
         processInput(window);   // User input given to window created by glfw
 
 
@@ -449,9 +456,7 @@ int main()
         glUniform3f(glGetUniformLocation(gBufferShader.ID, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);        // Default albedo Color white
 
 
-        unsigned int total = 0, display = 0;
-        scene.drawSelfAndChild(camFrustum, gBufferShader, display, total);  // Draw our Scene Graph while passing remaining resources to the shader
-        std::cout << "Total process in CPU : " << total << " / Total send to GPU : " << display << std::endl;
+        scene.drawSelfAndChild(camFrustum, gBufferShader, displayedModels, totalModelsInScene);  // Draw our Scene Graph while passing remaining resources to the shader
 
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);               // Resets the non rendering framebuffer to direct to window framebuffer
@@ -534,8 +539,7 @@ int main()
         envMapLUT.useTexture();                             // Environment Map for reflection
 
 
-        unsigned int totalLights = 0;
-        scene.drawPointLights(lightingBRDFShader, totalLights, camera);     // point light info pass to shader
+        scene.drawPointLights(lightingBRDFShader, totalLightsInScene, camera);     // point light info pass to shader
 
         
         // Directional light info pass to shader
@@ -984,6 +988,12 @@ int main()
             if (ImGui::CollapsingHeader("Post Processing"))
             {
                 ImGui::Indent();
+                
+                bool vsyncOld = vsync;
+                ImGui::Checkbox("Vsync", (bool*)&vsync);                    // Vsync
+                if(vsync != vsyncOld)
+                    glfwSwapInterval((int)vsync);
+
                 ImGui::Checkbox("Ambient Occlusion", (bool*)&saoMode);      // SAO
                 ImGui::Checkbox("FXAA", (bool*)&fxaaMode);                  // FXAA
                 if (ImGui::TreeNode("Tonemapping"))                         // Tonemapping
@@ -1085,6 +1095,19 @@ int main()
         // ------------
         {
             ImGui::Begin("Profiling");
+
+
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Scene Entities"))
+            {
+                ImGui::Indent();
+                ImGui::Text("Total Models :     %d", totalModelsInScene);
+                ImGui::Text("Displayed Models : %d", displayedModels);
+                ImGui::Text("Total Lights :     %d", totalLightsInScene);
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
 
 
             ImGui::Spacing();
