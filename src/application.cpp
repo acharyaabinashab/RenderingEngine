@@ -182,9 +182,7 @@ Shape envCubeRender;
 // Addable Objects
 Model planetModel;
 Model rockModel;
-Model sponzaModel;
 Model backPackModel;
-Model dinosaurModel;
 
 int selected_hierarchy_node = 0;    // select the scene on start
 int gizmoType = 0;
@@ -193,7 +191,7 @@ bool mouseHoveringViewport = false;
 int main()
 {
     //std::cout << "Current path is " << filesystem::current_path().string() << '\n';
-    printf("%s\n", std::filesystem::current_path().string().c_str());
+    printf("Root Path: %s\n", std::filesystem::current_path().string().c_str());
     
     // ------------------------------
     // glfw: initialize and configure
@@ -407,10 +405,11 @@ int main()
     // Doing this here also prevents UV fckup (why tho?)
     // -------------------------------------------------
     planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
+    cout << "Planet Model Loaded\n";
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
-    sponzaModel = Model(FileSystem::getPath("resources/objects/sponza/sponza.obj"));
+    cout << "Rock Model Loaded\n";
     backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
-    //dinosaurModel = Model(FileSystem::getPath("resources/objects/dinosaur/Dinosaur_texture.obj"));
+    cout << "Backpack Model Loaded\n";
     std::cout << "Loaded all Models" << "\n";
 
 
@@ -803,20 +802,13 @@ int main()
                     scene.addChild(rockModel, "New Rock");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
-                if (ImGui::MenuItem("Sponza")) {
-                    scene.addChild(sponzaModel, "New Sponza");
-                    selected_hierarchy_node = scene.children.back().get()->id;
-                }
                 if (ImGui::MenuItem("Backpack")) {
                     scene.addChild(backPackModel, "New Backpack");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
+                ImGui::Separator();
                 if (ImGui::MenuItem("PointLight")) {
                     scene.addChild(true, "New PointLight");
-                    selected_hierarchy_node = scene.children.back().get()->id;
-                }
-                if (ImGui::MenuItem("Dinosaur")) {
-                    scene.addChild(dinosaurModel, "New Dinosaur");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
                 ImGui::EndPopup();
@@ -1040,10 +1032,6 @@ int main()
                 postprocessSetup();
                 screenSetup();
                 iblSetup();
-
-
-                printf("Window: %d, %d\n", SCR_WIDTH, SCR_HEIGHT);
-                printf("Viewport: %d, %d\n\n", viewportWidth, viewportHeight);
             }
 
 
@@ -1571,20 +1559,13 @@ bool rightClickMenu(Entity& m_entity) {
                 m_entity.addChild(rockModel, "New Rock");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
-            if (ImGui::MenuItem("Sponza")) {
-                m_entity.addChild(sponzaModel, "New Sponza");
-                selected_hierarchy_node = m_entity.children.back().get()->id;
-            }
             if (ImGui::MenuItem("Backpack")) {
                 m_entity.addChild(backPackModel, "New Backpack");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
+            ImGui::Separator();
             if (ImGui::MenuItem("PointLight")) {
                 m_entity.addChild(true, "New PointLight");
-                selected_hierarchy_node = m_entity.children.back().get()->id;
-            }
-            if (ImGui::MenuItem("Dinosaur")) {
-                m_entity.addChild(dinosaurModel, "New Dinosaur");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
             ImGui::EndMenu();
