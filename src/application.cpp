@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <filesystem>
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -191,6 +192,9 @@ bool mouseHoveringViewport = false;
 
 int main()
 {
+    //std::cout << "Current path is " << filesystem::current_path().string() << '\n';
+    printf("%s\n", std::filesystem::current_path().string().c_str());
+    
     // ------------------------------
     // glfw: initialize and configure
     // ------------------------------
