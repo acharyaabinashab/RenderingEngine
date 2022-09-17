@@ -183,10 +183,30 @@ Shape envCubeRender;
 Model planetModel;
 Model rockModel;
 Model backPackModel;
+Model porcheModel;
 
 int selected_hierarchy_node = 0;    // select the scene on start
 int gizmoType = 0;
 bool mouseHoveringViewport = false;
+
+
+bool changeSceneCar = false;
+Entity scene = Entity("Scene Root");
+
+void carScene() 
+{
+    changeSceneCar = false;
+    for (auto it = scene.children.begin(); it != scene.children.end(); it)
+    {
+        auto temp = it;
+        ++it;
+        scene.children.remove(*temp);
+    }
+
+
+    scene.addChild(porcheModel, "New Car");
+}
+
 
 int main()
 {
@@ -230,10 +250,6 @@ int main()
     }
 
 
-    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    //stbi_set_flip_vertically_on_load(true);
-
-
     // -----------------------------
     // configure global opengl state
     // -----------------------------
@@ -256,7 +272,6 @@ int main()
     // load entities : [ Replace this with custom new scene ]
     // -------------
     Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
-    Entity scene = Entity("Scene Root");
     scene.transform.setLocalPosition({ 0, 0, 0 });
 
 
@@ -397,6 +412,10 @@ int main()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 
+    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
+    stbi_set_flip_vertically_on_load(false);
+
+
     // ---------------------
     // Models Initialization
     // ---------------------
@@ -410,7 +429,10 @@ int main()
     cout << "Rock Model Loaded\n";
     backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
     cout << "Backpack Model Loaded\n";
+    porcheModel = Model(FileSystem::getPath("resources/objects/porche/porche.obj"));
+    cout << "Car Model Loaded\n";
     std::cout << "Loaded all Models" << "\n";
+
 
 
     // -----------
@@ -753,6 +775,12 @@ int main()
                 // Disabling fullscreen would allow the window to be moved to the front of other windows,
                 // which we can't undo at the moment without finer window depth/z control.
                 // ---------------------------------------------------------------------------------------------
+                if (ImGui::MenuItem("Car Scene")) {
+                    changeSceneCar = true;
+                }
+                ImGui::Separator();
+
+
                 ImGui::MenuItem("Fullscreen", NULL, &opt_fullscreen);
                 ImGui::MenuItem("Padding", NULL, &opt_padding);
                 ImGui::Separator();
@@ -804,6 +832,10 @@ int main()
                 }
                 if (ImGui::MenuItem("Backpack")) {
                     scene.addChild(backPackModel, "New Backpack");
+                    selected_hierarchy_node = scene.children.back().get()->id;
+                }
+                if (ImGui::MenuItem("Car")) {
+                    scene.addChild(porcheModel, "New Car");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
                 ImGui::Separator();
@@ -1201,6 +1233,12 @@ int main()
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+
+        if (changeSceneCar == true)
+        {
+            carScene();
+        }
     }
 
     //ImGUI Shutdown
