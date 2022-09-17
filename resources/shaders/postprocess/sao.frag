@@ -30,7 +30,7 @@ void main(void){
     ivec2 saoOffset = ivec2(gl_FragCoord.xy);
     float saoPhi = (30 * saoOffset.x ^ saoOffset.y + 10 * saoOffset.x * saoOffset.y);
 
-    const float saoScreenRadius = -saoRadius * 3500.0f / fragPos.z;   // Kinda hard to properly define the pixel-size of a 1m object at z = −1m, sooo...
+    const float saoScreenRadius = saoRadius * (1 - fragPos.z);   // radius should decrease as you go away from object
     int saoMaxMipLevel = textureQueryLevels(gPosition) - 1;
 
     for (int i = 0; i < saoSamples; ++i)

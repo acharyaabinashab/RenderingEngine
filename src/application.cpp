@@ -18,14 +18,13 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-#include <learnopengl/filesystem.h>
-#include <learnopengl/shader_m.h>
-#include <learnopengl/camera.h>
-#include <learnopengl/model.h>
-#include <learnopengl/entity.h>
+#include <components/filesystem.h>
+#include <components/shader_m.h>
+#include <components/camera.h>
+#include <components/model.h>
+#include <components/entity.h>
 
 #include "texture.h"
-#include "material.h"
 #include "shape.h"
 
 #ifndef ENTITY_H
@@ -171,8 +170,6 @@ Texture envMapIrradiance;
 Texture envMapPrefilter;
 Texture envMapLUT;
 
-Material pbrMat;
-
 Model objectModel;
 
 
@@ -182,6 +179,7 @@ Shape envCubeRender;
 // Addable Objects
 Model planetModel;
 Model rockModel;
+Model cyborgModel;
 Model backPackModel;
 Model porcheModel;
 
@@ -427,6 +425,8 @@ int main()
     cout << "Planet Model Loaded\n";
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
     cout << "Rock Model Loaded\n";
+    cyborgModel = Model(FileSystem::getPath("resources/objects/cyborg/cyborg.obj"));
+    cout << "Cyborg Model Loaded\n";
     backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
     cout << "Backpack Model Loaded\n";
     porcheModel = Model(FileSystem::getPath("resources/objects/porche/porche.obj"));
@@ -838,6 +838,10 @@ int main()
                     scene.addChild(porcheModel, "New Car");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
+                if (ImGui::MenuItem("Cyborg")) {
+                    scene.addChild(cyborgModel, "New Cyborg");
+                    selected_hierarchy_node = scene.children.back().get()->id;
+                }
                 ImGui::Separator();
                 if (ImGui::MenuItem("PointLight")) {
                     scene.addChild(true, "New PointLight");
@@ -968,9 +972,9 @@ int main()
             if (ImGui::CollapsingHeader("Environment map"))
             {
                 ImGui::Indent();
-                if (ImGui::Button("Appartment", {150.0f, 25.0f}))
+                if (ImGui::Button("Underpass", {150.0f, 25.0f}))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);    // Apartment
+                    envMapHDR.setTextureHDR("resources/textures/hdr/underpass.hdr", "underpassHDR", true);    // Apartment
                     iblSetup();
                 }
                 if (ImGui::Button("Pisa", { 150.0f, 25.0f }))
@@ -983,9 +987,9 @@ int main()
                     envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);    // Canyon
                     iblSetup();
                 }
-                if (ImGui::Button("Loft", { 150.0f, 25.0f }))
+                if (ImGui::Button("Sunset", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/loft.hdr", "loftHDR", true);        // Loft
+                    envMapHDR.setTextureHDR("resources/textures/hdr/sunset.hdr", "sunsetHDR", true);        // Loft
                     iblSetup();
                 }
                 if (ImGui::Button("Path", { 150.0f, 25.0f }))
@@ -993,14 +997,14 @@ int main()
                     envMapHDR.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);        // Path
                     iblSetup();
                 }
-                if (ImGui::Button("Circus", { 150.0f, 25.0f }))
-                {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/circus.hdr", "circusHDR", true);    // Circus
-                    iblSetup();
-                }
                 if (ImGui::Button("Hills", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);      // Hills
+                    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);    // Circus
+                    iblSetup();
+                }
+                if (ImGui::Button("Road", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/road.hdr", "roadHDR", true);      // Hills
                     iblSetup();
                 }
                 ImGui::Unindent();
@@ -1022,8 +1026,21 @@ int main()
                 if(vsync != vsyncOld)
                     glfwSwapInterval((int)vsync);
 
-                ImGui::Checkbox("Ambient Occlusion", (bool*)&saoMode);      // SAO
                 ImGui::Checkbox("FXAA", (bool*)&fxaaMode);                  // FXAA
+                if (ImGui::TreeNode("SAO"))                                 // SAO
+                {
+                    ImGui::Checkbox("Enable", &saoMode);
+
+                    ImGui::SliderInt("Samples", &saoSamples, 0, 64);
+                    ImGui::SliderFloat("Radius", &saoRadius, 0.0f, 10.0f);
+                    ImGui::SliderInt("Turns", &saoTurns, 0, 16);
+                    ImGui::SliderFloat("Bias", &saoBias, 0.0f, 0.1f);
+                    ImGui::SliderFloat("Scale", &saoScale, 0.0f, 3.0f);
+                    ImGui::SliderFloat("Contrast", &saoContrast, 0.0f, 3.0f);
+                    ImGui::SliderInt("Blur Size", &saoBlurSize, 0, 8);
+
+                    ImGui::TreePop();
+                }
                 if (ImGui::TreeNode("Tonemapping"))                         // Tonemapping
                 {
                     ImGui::RadioButton("Reinhard", &tonemappingMode, 1);

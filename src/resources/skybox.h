@@ -12,8 +12,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "learnopengl/camera.h"
-#include "learnopengl/shader_m.h"
+#include "components/camera.h"
+#include "components/shader_m.h"
 #include "texture.h"
 #include "shape.h"
 
