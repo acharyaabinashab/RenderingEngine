@@ -90,9 +90,9 @@ GLint gBufferView = 1;
 GLint tonemappingMode = 1;
 GLint lightDebugMode = 3;
 GLint attenuationMode = 2;
-GLint saoSamples = 12;
-GLint saoTurns = 7;
-GLint saoBlurSize = 4;
+GLint saoSamples = 32;
+GLint saoTurns = 10;
+GLint saoBlurSize = 2;
 GLint motionBlurMaxSamples = 32;
 
 GLfloat deltaTime = 0.0f;
@@ -106,10 +106,10 @@ GLfloat deltaGUITime = 0.0f;
 GLfloat materialRoughness = 0.01f;
 GLfloat materialMetallicity = 0.02f;
 GLfloat ambientIntensity = 0.005f;
-GLfloat saoRadius = 0.3f;
-GLfloat saoBias = 0.001f;
+GLfloat saoRadius = 6.5f;
+GLfloat saoBias = 0.006f;
 GLfloat saoScale = 0.7f;
-GLfloat saoContrast = 0.8f;
+GLfloat saoContrast = 0.9f;
 GLfloat lightPointRadius1 = 3.0f;
 GLfloat lightPointRadius2 = 3.0f;
 GLfloat lightPointRadius3 = 3.0f;
@@ -131,11 +131,11 @@ bool guiIsOpen = true;
 bool keys[1024];
 bool vsync = true;
 
-float directionalLightIntensity = 1.0f;
+float directionalLightIntensity = 2.0f;
 glm::vec3 albedoColor = glm::vec3(1.0f);
 glm::vec3 materialF0 = glm::vec3(0.04f);    // UE4 dielectric
-glm::vec3 lightDirectionalDirection1 = glm::vec3(-0.2f, -1.0f, -0.3f);
-glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
+glm::vec3 lightDirectionalDirection1 = glm::vec3(0.65f, -0.4f, 0.11f);
+glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f, 0.99f, 0.88f);
 glm::vec3 modelPosition = glm::vec3(0.0f);
 glm::vec3 modelRotationAxis = glm::vec3(0.0f, 1.0f, 0.0f);
 glm::vec3 modelScale = glm::vec3(0.1f);
@@ -363,6 +363,34 @@ int main()
     quadRender.setShape("quad", glm::vec3(0.0f));
 
 
+    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
+    stbi_set_flip_vertically_on_load(false);
+
+
+    // ---------------------
+    // Models Initialization
+    // ---------------------
+    // It is initialized here because it needs the glad loader to finish for it to work
+    // Also doesn't work when this is called from outside the function from where it is declared
+    // -------------------------------------------------
+    planeModel = Model(FileSystem::getPath("resources/objects/primitives/plane.obj"));
+    cubeModel = Model(FileSystem::getPath("resources/objects/primitives/cube.obj"));
+    sphereModel = Model(FileSystem::getPath("resources/objects/primitives/sphere.obj"));
+    cylinderModel = Model(FileSystem::getPath("resources/objects/primitives/cylinder.obj"));
+    cout << "Primitive Models Loaded\n";
+    planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
+    cout << "Planet Model Loaded\n";
+    rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
+    cout << "Rock Model Loaded\n";
+    cyborgModel = Model(FileSystem::getPath("resources/objects/cyborg/cyborg.obj"));
+    cout << "Cyborg Model Loaded\n";
+    backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
+    cout << "Backpack Model Loaded\n";
+    porcheModel = Model(FileSystem::getPath("resources/objects/porche/porche.obj"));
+    cout << "Car Model Loaded\n";
+    std::cout << "Loaded all Models" << "\n";
+
+
     //---------------------------------------------------------
     // Set the samplers for the lighting/post-processing passes
     //---------------------------------------------------------
@@ -434,36 +462,6 @@ int main()
 
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-
-    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    stbi_set_flip_vertically_on_load(false);
-
-
-    // ---------------------
-    // Models Initialization
-    // ---------------------
-    // It is initialized here because it needs the glad loader to finish for it to work
-    // Also doesn't work when this is called from outside the function from where it is declared
-    // Doing this here also prevents UV fckup (why tho?)
-    // -------------------------------------------------
-    planeModel = Model(FileSystem::getPath("resources/objects/primitives/plane.obj"));
-    cubeModel = Model(FileSystem::getPath("resources/objects/primitives/cube.obj"));
-    sphereModel = Model(FileSystem::getPath("resources/objects/primitives/sphere.obj"));
-    cylinderModel = Model(FileSystem::getPath("resources/objects/primitives/cylinder.obj"));
-    cout << "Primitive Models Loaded\n";
-    planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
-    cout << "Planet Model Loaded\n";
-    rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
-    cout << "Rock Model Loaded\n";
-    cyborgModel = Model(FileSystem::getPath("resources/objects/cyborg/cyborg.obj"));
-    cout << "Cyborg Model Loaded\n";
-    backPackModel = Model(FileSystem::getPath("resources/objects/backpack/backpack.obj"));
-    cout << "Backpack Model Loaded\n";
-    porcheModel = Model(FileSystem::getPath("resources/objects/porche/porche.obj"));
-    cout << "Car Model Loaded\n";
-    std::cout << "Loaded all Models" << "\n";
-
 
 
     // -----------
@@ -893,6 +891,10 @@ int main()
                     }
                     if (ImGui::MenuItem("Backpack")) {
                         scene.addChild(backPackModel, "New Backpack");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    if (ImGui::MenuItem("Cyborg")) {
+                        scene.addChild(cyborgModel, "New Cyborg");
                         selected_hierarchy_node = scene.children.back().get()->id;
                     }
                     if (ImGui::MenuItem("Car")) {
@@ -1729,6 +1731,10 @@ bool rightClickMenu(Entity& m_entity) {
             if (ImGui::MenuItem("Backpack")) {
                 m_entity.addChild(backPackModel, "New Backpack");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Cyborg")) {
+                scene.addChild(cyborgModel, "New Cyborg");
+                selected_hierarchy_node = scene.children.back().get()->id;
             }
             if (ImGui::MenuItem("Car")) {
                 m_entity.addChild(backPackModel, "New Car");

@@ -62,3 +62,13 @@ include/imguizmo
 resources/objects/planet/mars.png
 resources/objects/porche
 render.png
+resources/objects/backpack/albedo.jpg
+resources/objects/backpack/ambient.jpg
+resources/objects/backpack/metalness.jpg
+resources/objects/backpack/normal.png
+resources/objects/backpack/roughness.jpg
+resources/objects/backpack/roughness.jpg
+resources/objects/backpack/normal.png
+resources/objects/backpack/metalness.jpg
+resources/objects/backpack/ambient.jpg
+resources/objects/backpack/albedo.jpg
