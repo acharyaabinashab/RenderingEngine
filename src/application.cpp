@@ -71,7 +71,7 @@ unsigned int viewportWidth = 1400;
 unsigned int viewportHeight = 900;
 
 // camera
-Camera camera(glm::vec3(0.0f, 6.0f, 4.0f));
+Camera camera(glm::vec3(-3.0f, 2.0f, 6.0f));
 float lastX = SCR_WIDTH / 2.0f;     // for glfw window not imgui window
 float lastY = SCR_HEIGHT / 2.0f;
 bool mouseDragEnabled = false;
@@ -200,18 +200,56 @@ bool mouseHoveringViewport = false;
 bool changeSceneCar = false;
 Entity scene = Entity("Scene Root");
 
+bool showPointLightSource = true;
+
 void carScene() 
 {
     changeSceneCar = false;
     envMapHDR.setTextureHDR("resources/textures/hdr/city.hdr", "cityHDR", true);            // Road
     iblSetup();
+    ambientIntensity = 4.0f;
+    directionalLightIntensity = 0.0f;
     for (auto it = scene.children.begin(); it != scene.children.end(); it)
     {
         auto temp = it;
         ++it;
         scene.children.remove(*temp);
     }
-    scene.addChild(porcheModel, "New Car");
+    scene.addChild(porcheModel, "Porche Car");
+    Entity* lastEntity = scene.children.back().get();
+
+    lastEntity->addChild(cyborgModel, "Cyborg Character");
+    lastEntity = lastEntity->children.back().get();
+    lastEntity->transform.setLocalRotation(glm::vec3(0.0f, -37.0f, 0.0f));
+    lastEntity->transform.setLocalPosition(glm::vec3(1.614f, 0.0f, 0.67f));
+    lastEntity->transform.setLocalScale(glm::vec3(0.8f, 0.8f, 0.8f));
+
+    lastEntity = scene.children.back().get();
+    lastEntity->addChild(backPackModel, "Backpack");
+    lastEntity = lastEntity->children.back().get();
+    lastEntity->transform.setLocalPosition(glm::vec3(-0.999f, 1.412f, -1.745f));
+    lastEntity->transform.setLocalRotation(glm::vec3(-53.8f, -121.0f, 0.0f));
+    lastEntity->transform.setLocalScale(glm::vec3(0.25f, 0.25f, 0.25f));
+
+
+    lastEntity = &scene;
+    lastEntity->addChild(true, "Red Light");
+    lastEntity = scene.children.back().get();
+    lastEntity->pointLight.intensity = 8.5f;
+    lastEntity->pointLight.color = glm::vec3(1.0f, 0.0f, 0.1f);
+    lastEntity->transform.setLocalPosition(glm::vec3(-1.797f, 1.726f, 4.033f));
+
+    lastEntity = &scene;
+    lastEntity->addChild(true, "Blue Light");
+    lastEntity = scene.children.back().get();
+    lastEntity->pointLight.intensity = 16.0f;
+    lastEntity->pointLight.color = glm::vec3(0.33f, 0.831f, 1.0f);
+    lastEntity->transform.setLocalPosition(glm::vec3(0.65f, 4.0f, -3.562f));
+
+    camera.Position = glm::vec3(-3.0f, 2.0f, 6.0f);
+    camera.Yaw = -60.0f;
+    camera.Pitch = -5.0f;
+    camera.ProcessMouseMovement(0.0f, 0.0f);
 }
 
 
@@ -294,7 +332,7 @@ int main()
     // -------------
     // load entities : [ Replace this with custom new scene ]
     // -------------
-    Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
+    /*Model model = Model(FileSystem::getPath("resources/objects/planet/planet.obj")); // Works only after glad is loaded
     scene.transform.setLocalPosition({ 0, 0, 0 });
 
 
@@ -323,7 +361,10 @@ int main()
 
             lastEntity = lastEntity->children.back().get();
         }
-    }
+    }*/
+
+
+    
 
 
     //----------
@@ -463,6 +504,12 @@ int main()
 
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+
+    // ----------
+    // Load Scene
+    // ----------
+    carScene();
 
 
     // -----------
@@ -684,7 +731,8 @@ int main()
 
 
         unsigned int totalLightsMesh = 0;
-        scene.drawPointLightsMesh(simpleShader, totalLightsMesh, camera);
+        if(showPointLightSource)
+            scene.drawPointLightsMesh(simpleShader, totalLightsMesh, camera);
 
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1001,7 +1049,9 @@ int main()
                 if (ImGui::CollapsingHeader("Light Properties"))
                 {
                     ImGui::Indent();
-                    ImGui::ColorEdit4("Color", (float*)&ptrToSelectedEntity->pointLight.color, 0);                              // Color
+                    ImGui::Spacing();
+                    ImGui::SetColorEditOptions(ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_NoInputs);
+                    ImGui::ColorPicker3("Color", (float*)&ptrToSelectedEntity->pointLight.color, 0);
                     ImGui::DragFloat("Intensity", (float*)&ptrToSelectedEntity->pointLight.intensity, 0.05f, 0.0f, 100.0f);     // Intensity
                     ImGui::DragFloat("Radius", (float*)&ptrToSelectedEntity->pointLight.radius, 0.05f, 0.0f, 100.0f);           // Radius
                     ImGui::Unindent();
@@ -1011,11 +1061,75 @@ int main()
         }
 
 
+        // ------------
+        // 3. Profiling
+        // ------------
+        {
+            ImGui::Begin("Profiling");
+
+
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Scene Entities"))
+            {
+                ImGui::Indent();
+                ImGui::Text("Total Models :     %d", totalModelsInScene);
+                ImGui::Text("Displayed Models : %d", displayedModels);
+                ImGui::Text("Total Lights :     %d", totalLightsInScene);
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
+
+
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Profiling"))
+            {
+                ImGui::Indent();
+                ImGui::Text("Geometry Pass :    %.4f ms", deltaGeometryTime);
+                ImGui::Text("Lighting Pass :    %.4f ms", deltaLightingTime);
+                ImGui::Text("SAO Pass :         %.4f ms", deltaSAOTime);
+                ImGui::Text("Postprocess Pass : %.4f ms", deltaPostprocessTime);
+                ImGui::Text("Forward Pass :     %.4f ms", deltaForwardTime);
+                ImGui::Text("GUI Pass :         %.4f ms", deltaGUITime);
+                ImGui::Unindent();
+            }
+            ImGui::Spacing();
+
+
+            ImGui::Spacing();
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::CollapsingHeader("Application Info"))
+            {
+                char* glInfos = (char*)glGetString(GL_VERSION);
+                char* hardwareInfos = (char*)glGetString(GL_RENDERER);
+
+
+                ImGui::Indent();
+                ImGui::Text("OpenGL Version :");
+                ImGui::Text(glInfos);
+                ImGui::Text("Hardware Informations :");
+                ImGui::Text(hardwareInfos);
+                ImGui::Text("\nFramerate %.2f FPS / Frametime %.4f ms", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+                ImGui::Unindent();
+            }
+
+
+            ImGui::End();
+        }
+
+
         // -------------------
-        // 3. World Properties
+        // 4. World Properties
         // -------------------
         {
             ImGui::Begin("World Properties");
+
+            ImGui::Spacing();
+            ImGui::Checkbox("Show Lightbox", &showPointLightSource);
+            ImGui::Spacing();
+            ImGui::DragFloat("IBL Intensity", (float*)&ambientIntensity, 0.05f, 0.0f, 100.0f);     // Ambient Light Intensity
+            ImGui::Spacing();
 
 
             // -----------------
@@ -1027,14 +1141,13 @@ int main()
             {
                 ImGui::Indent();
                 ImGui::DragFloat3("Direction", (float*)&lightDirectionalDirection1, 0.01f, -1, 1);      // Direction
-                ImGui::ColorEdit4("Color", (float*)&lightDirectionalColor1, 0);                         // Color
+                ImGui::Spacing();
+                ImGui::SetColorEditOptions(ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_NoInputs);
+                ImGui::ColorPicker3("Color", (float*)&lightDirectionalColor1, 0);                       // Color
                 ImGui::DragFloat("Intensity", (float*)&directionalLightIntensity, 0.05f, 0.0f, 100.0f); // Intensity
                 ImGui::Unindent();
             }
             ImGui::Spacing();
-
-
-            ImGui::DragFloat("IBL Intensity", (float*)&ambientIntensity, 0.05f, 0.0f, 100.0f);     // Ambient Light Intensity
 
 
             // ---------------
@@ -1158,7 +1271,7 @@ int main()
         }
 
         // -----------
-        // 4. Viewport
+        // 5. Viewport
         // -----------
         {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.0f, 0.0f });
@@ -1226,64 +1339,6 @@ int main()
 
 
             ImGui::PopStyleVar();
-            ImGui::End();
-        }
-
-        
-        // ------------
-        // 5. Profiling
-        // ------------
-        {
-            ImGui::Begin("Profiling");
-
-
-            ImGui::Spacing();
-            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("Scene Entities"))
-            {
-                ImGui::Indent();
-                ImGui::Text("Total Models :     %d", totalModelsInScene);
-                ImGui::Text("Displayed Models : %d", displayedModels);
-                ImGui::Text("Total Lights :     %d", totalLightsInScene);
-                ImGui::Unindent();
-            }
-            ImGui::Spacing();
-
-
-            ImGui::Spacing();
-            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("Profiling"))
-            {
-                ImGui::Indent();
-                ImGui::Text("Geometry Pass :    %.4f ms", deltaGeometryTime);
-                ImGui::Text("Lighting Pass :    %.4f ms", deltaLightingTime);
-                ImGui::Text("SAO Pass :         %.4f ms", deltaSAOTime);
-                ImGui::Text("Postprocess Pass : %.4f ms", deltaPostprocessTime);
-                ImGui::Text("Forward Pass :     %.4f ms", deltaForwardTime);
-                ImGui::Text("GUI Pass :         %.4f ms", deltaGUITime);
-                ImGui::Unindent();
-            }
-            ImGui::Spacing();
-
-
-            ImGui::Spacing();
-            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("Application Info"))
-            {
-                char* glInfos = (char*)glGetString(GL_VERSION);
-                char* hardwareInfos = (char*)glGetString(GL_RENDERER);
-
-
-                ImGui::Indent();
-                ImGui::Text("OpenGL Version :");
-                ImGui::Text(glInfos);
-                ImGui::Text("Hardware Informations :");
-                ImGui::Text(hardwareInfos);
-                ImGui::Text("\nFramerate %.2f FPS / Frametime %.4f ms", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
-                ImGui::Unindent();
-            }
-
-
             ImGui::End();
         }
 

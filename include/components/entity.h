@@ -657,7 +657,7 @@ public:
 			glm::mat4 model = glm::mat4(1.0f);
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, transform.getGlobalPosition());
-			model = glm::scale(model, glm::vec3(0.125f));
+			model = glm::scale(model, glm::vec3(0.05f * glm::sqrt(pointLight.intensity)));
 			shader.setMat4("model", model);
 			renderCube();
 			total++;
