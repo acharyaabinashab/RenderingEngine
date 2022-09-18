@@ -57,8 +57,6 @@ bool putEntityInSceneHierarchyPanel(Entity& parent, Entity*& ptrToSelectedEntity
 bool rightClickMenu(Entity& m_entity);
 bool DecomposeTransform(const glm::mat4& transform, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale);
 
-void renderQuad();
-void renderCube();
 
 void gBufferSetup();
 void saoSetup();
@@ -105,7 +103,7 @@ GLfloat deltaForwardTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
 GLfloat materialRoughness = 0.01f;
 GLfloat materialMetallicity = 0.02f;
-GLfloat ambientIntensity = 0.005f;
+GLfloat ambientIntensity = 1.0f;
 GLfloat saoRadius = 6.5f;
 GLfloat saoBias = 0.006f;
 GLfloat saoScale = 0.7f;
@@ -192,6 +190,7 @@ Model rockModel;
 Model cyborgModel;
 Model backPackModel;
 Model porcheModel;
+Model floorModel;
 
 int selected_hierarchy_node = 0;    // select the scene on start
 int gizmoType = 0;
@@ -204,7 +203,7 @@ Entity scene = Entity("Scene Root");
 void carScene() 
 {
     changeSceneCar = false;
-    envMapHDR.setTextureHDR("resources/textures/hdr/road.hdr", "roadHDR", true);            // Road
+    envMapHDR.setTextureHDR("resources/textures/hdr/city.hdr", "cityHDR", true);            // Road
     iblSetup();
     for (auto it = scene.children.begin(); it != scene.children.end(); it)
     {
@@ -378,6 +377,8 @@ int main()
     sphereModel = Model(FileSystem::getPath("resources/objects/primitives/sphere.obj"));
     cylinderModel = Model(FileSystem::getPath("resources/objects/primitives/cylinder.obj"));
     cout << "Primitive Models Loaded\n";
+    floorModel = Model(FileSystem::getPath("resources/objects/floor/floor.obj"));
+    cout << "Floor Model Loaded\n";
     planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
     cout << "Planet Model Loaded\n";
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
@@ -665,30 +666,28 @@ int main()
         //-----------------------
         // Forward Pass rendering
         //-----------------------
-        glQueryCounter(queryIDForward[0], GL_TIMESTAMP);    // Start timer for non PBR rendering
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-
-        // Copy the depth informations from the Geometry Pass into the default framebuffer
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screenFBO); // write to default framebuffer
+        // blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
+        // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the 		
+        // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
         glBlitFramebuffer(0, 0, viewportWidth, viewportHeight, 0, 0, viewportWidth, viewportHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        
+
+        // ------------------------------
+        // Render Lights on top of screen
+        // ------------------------------
+        glBindFramebuffer(GL_FRAMEBUFFER, screenFBO);
+        simpleShader.use();
+        glUniformMatrix4fv(glGetUniformLocation(simpleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));      // Camera Projection
+        glUniformMatrix4fv(glGetUniformLocation(simpleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));                  // Camera View
+
+
+        unsigned int totalLightsMesh = 0;
+        scene.drawPointLightsMesh(simpleShader, totalLightsMesh, camera);
+
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // TODO: Shape(s) rendering
-        //if (pointMode)
-        //{
-        //    simpleShader.use();
-        //    glUniformMatrix4fv(glGetUniformLocation(simpleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        //    glUniformMatrix4fv(glGetUniformLocation(simpleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
-
-        //    for (int i = 0; i < Light::lightPointList.size(); i++)
-        //    {
-        //        glUniform4f(glGetUniformLocation(simpleShader.ID, "lightColor"), Light::lightPointList[i].getLightColor().r, Light::lightPointList[i].getLightColor().g, Light::lightPointList[i].getLightColor().b, Light::lightPointList[i].getLightColor().a);
-
-        //        if (Light::lightPointList[i].isMesh())
-        //            Light::lightPointList[i].lightMesh.drawShape(simpleShader, view, projection, camera);
-        //    }
-        //}
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);    // Stop timer for non PBR rendering
 
 
@@ -893,12 +892,16 @@ int main()
                         scene.addChild(backPackModel, "New Backpack");
                         selected_hierarchy_node = scene.children.back().get()->id;
                     }
+                    if (ImGui::MenuItem("Floor")) {
+                        scene.addChild(floorModel, "New Floor");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
                     if (ImGui::MenuItem("Cyborg")) {
                         scene.addChild(cyborgModel, "New Cyborg");
                         selected_hierarchy_node = scene.children.back().get()->id;
                     }
                     if (ImGui::MenuItem("Car")) {
-                        scene.addChild(backPackModel, "New Car");
+                        scene.addChild(porcheModel, "New Car");
                         selected_hierarchy_node = scene.children.back().get()->id;
                     }
                     ImGui::EndMenu();
@@ -1031,6 +1034,9 @@ int main()
             ImGui::Spacing();
 
 
+            ImGui::DragFloat("IBL Intensity", (float*)&ambientIntensity, 0.05f, 0.0f, 100.0f);     // Ambient Light Intensity
+
+
             // ---------------
             // Environment Map
             // ---------------
@@ -1072,6 +1078,11 @@ int main()
                 if (ImGui::Button("Road", { 150.0f, 25.0f }))
                 {
                     envMapHDR.setTextureHDR("resources/textures/hdr/road.hdr", "roadHDR", true);            // Road
+                    iblSetup();
+                }
+                if (ImGui::Button("City", { 150.0f, 25.0f }))
+                {
+                    envMapHDR.setTextureHDR("resources/textures/hdr/city.hdr", "cityHDR", true);            // City
                     iblSetup();
                 }
                 ImGui::Unindent();
@@ -1459,6 +1470,12 @@ void screenSetup()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenBuffer, 0);
 
+    // Z-Buffer
+    glGenRenderbuffers(1, &zBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, zBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, viewportWidth, viewportHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, zBuffer);
+
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Postprocess Framebuffer not complete !" << std::endl;
 }
@@ -1737,7 +1754,7 @@ bool rightClickMenu(Entity& m_entity) {
                 selected_hierarchy_node = scene.children.back().get()->id;
             }
             if (ImGui::MenuItem("Car")) {
-                m_entity.addChild(backPackModel, "New Car");
+                m_entity.addChild(porcheModel, "New Car");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
             ImGui::EndMenu();

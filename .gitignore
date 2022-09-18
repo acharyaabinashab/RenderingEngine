@@ -72,3 +72,10 @@ resources/objects/backpack/normal.png
 resources/objects/backpack/metalness.jpg
 resources/objects/backpack/ambient.jpg
 resources/objects/backpack/albedo.jpg
+resources/objects/floor/albedo.png
+resources/objects/floor/ambient.png
+resources/objects/floor/floor.mtl
+resources/objects/floor/floor.obj
+resources/objects/floor/metalness.png
+resources/objects/floor/normal.png
+resources/objects/floor/roughness.png

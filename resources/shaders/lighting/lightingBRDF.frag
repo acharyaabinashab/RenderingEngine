@@ -195,7 +195,7 @@ void main()
             // vec3 ambientIBL = (diffuseIrradiance * kD);
             vec3 ambientIBL = (diffuseIrradiance * kD) + specularRadiance;
 
-            color += ambientIBL;
+            color += ambientIBL * ambientIntensity;
         }
 
         color *= ao;
