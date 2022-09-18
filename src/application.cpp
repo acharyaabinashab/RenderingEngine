@@ -27,6 +27,12 @@
 #include "texture.h"
 #include "shape.h"
 
+
+#define STBI_MSC_SECURE_CRT
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+
 #ifndef ENTITY_H
 #define ENTITY_H
 
@@ -194,15 +200,31 @@ Entity scene = Entity("Scene Root");
 void carScene() 
 {
     changeSceneCar = false;
+    envMapHDR.setTextureHDR("resources/textures/hdr/road.hdr", "roadHDR", true);            // Road
+    iblSetup();
     for (auto it = scene.children.begin(); it != scene.children.end(); it)
     {
         auto temp = it;
         ++it;
         scene.children.remove(*temp);
     }
-
-
     scene.addChild(porcheModel, "New Car");
+}
+
+
+void renderImage() {
+    int width = (int)viewportWidth;
+    int height = (int)viewportHeight;
+    unsigned char* buffer = (unsigned char*)malloc(width * height * 3);
+    unsigned char* last_row = buffer + (width * 3 * (height - 1));
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glBindFramebuffer(GL_FRAMEBUFFER, screenFBO);
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+    string filename = "render.png";
+    if (!stbi_write_png(filename.c_str(), width, height, 3, last_row, -3 * width)) {
+        cerr << "ERROR: could not write image to " << filename << endl;
+    }
+    free(buffer);
 }
 
 
@@ -974,37 +996,37 @@ int main()
                 ImGui::Indent();
                 if (ImGui::Button("Underpass", {150.0f, 25.0f}))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/underpass.hdr", "underpassHDR", true);    // Apartment
+                    envMapHDR.setTextureHDR("resources/textures/hdr/underpass.hdr", "underpassHDR", true);  // Underpass
                     iblSetup();
                 }
                 if (ImGui::Button("Pisa", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);        // Pisa
+                    envMapHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);            // Pisa
                     iblSetup();
                 }
                 if (ImGui::Button("Canyon", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);    // Canyon
+                    envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);        // Canyon
                     iblSetup();
                 }
                 if (ImGui::Button("Sunset", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/sunset.hdr", "sunsetHDR", true);        // Loft
+                    envMapHDR.setTextureHDR("resources/textures/hdr/sunset.hdr", "sunsetHDR", true);        // Sunset
                     iblSetup();
                 }
                 if (ImGui::Button("Path", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);        // Path
+                    envMapHDR.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);            // Path
                     iblSetup();
                 }
                 if (ImGui::Button("Hills", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);    // Circus
+                    envMapHDR.setTextureHDR("resources/textures/hdr/hills.hdr", "hillsHDR", true);          // Hills
                     iblSetup();
                 }
                 if (ImGui::Button("Road", { 150.0f, 25.0f }))
                 {
-                    envMapHDR.setTextureHDR("resources/textures/hdr/road.hdr", "roadHDR", true);      // Hills
+                    envMapHDR.setTextureHDR("resources/textures/hdr/road.hdr", "roadHDR", true);            // Road
                     iblSetup();
                 }
                 ImGui::Unindent();
@@ -1053,6 +1075,27 @@ int main()
                 ImGui::Unindent();
             }
             ImGui::Spacing();
+
+
+            // ------------
+            // Render Image
+            // ------------
+            {
+                ImGui::Separator();
+                ImGui::Spacing();
+                ImGuiStyle& style = ImGui::GetStyle();
+                const char* label = "Render Image";
+                float size = 200.0f;
+                float avail = ImGui::GetContentRegionAvail().x;
+                float off = (avail - size) * 0.5f;
+                if (off > 0.0f)
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+                if (ImGui::Button("Render Image", { 200.0f, 40.0f }))
+                {
+                    renderImage();
+                }
+                ImGui::Spacing();
+            }
 
 
             ImGui::End();
@@ -1746,7 +1789,7 @@ void processInput(GLFWwindow* window)
 
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes`
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -1808,112 +1851,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 #pragma endregion
 
-// renderCube() renders a 1x1 3D cube in NDC.
-// -------------------------------------------------
-unsigned int cubeVAO = 0;
-unsigned int cubeVBO = 0;
-void renderCube()
-{
-    // initialize (if necessary)
-    if (cubeVAO == 0)
-    {
-        float vertices[] = {
-            // back face
-            -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
-             1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
-             1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, // bottom-right         
-             1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
-            -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
-            -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f, // top-left
-            // front face
-            -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
-             1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, // bottom-right
-             1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
-             1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
-            -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f, // top-left
-            -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
-            // left face
-            -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
-            -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-left
-            -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
-            -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
-            -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-right
-            -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
-            // right face
-             1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
-             1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
-             1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-right         
-             1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
-             1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
-             1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-left     
-             // bottom face
-             -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
-              1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, // top-left
-              1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
-              1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
-             -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f, // bottom-right
-             -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
-             // top face
-             -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
-              1.0f,  1.0f , 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
-              1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f, // top-right     
-              1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
-             -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
-             -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f  // bottom-left        
-        };
-        glGenVertexArrays(1, &cubeVAO);
-        glGenBuffers(1, &cubeVBO);
-        // fill buffer
-        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        // link vertex attributes
-        glBindVertexArray(cubeVAO);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-    }
-    // render Cube
-    glBindVertexArray(cubeVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-}
-
-
-// renderQuad() renders a 1x1 XY quad in NDC
-// -----------------------------------------
-unsigned int quadVAO = 0;
-unsigned int quadVBO;
-void renderQuad()
-{
-    if (quadVAO == 0)
-    {
-        float quadVertices[] = {
-            // positions        // texture Coords
-            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-             1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
-             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        };
-        // setup plane VAO
-        glGenVertexArrays(1, &quadVAO);
-        glGenBuffers(1, &quadVBO);
-        glBindVertexArray(quadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    }
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
-}
 
 bool DecomposeTransform(const glm::mat4& transform, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale)
 {

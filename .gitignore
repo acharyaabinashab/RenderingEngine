@@ -61,3 +61,4 @@ resources/objects/planet
 include/imguizmo
 resources/objects/planet/mars.png
 resources/objects/porche
+render.png
