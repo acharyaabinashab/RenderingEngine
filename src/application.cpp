@@ -183,6 +183,10 @@ Shape quadRender;
 Shape envCubeRender;
 
 // Addable Objects
+Model planeModel;
+Model cubeModel;
+Model sphereModel;
+Model cylinderModel;
 Model planetModel;
 Model rockModel;
 Model cyborgModel;
@@ -443,6 +447,11 @@ int main()
     // Also doesn't work when this is called from outside the function from where it is declared
     // Doing this here also prevents UV fckup (why tho?)
     // -------------------------------------------------
+    planeModel = Model(FileSystem::getPath("resources/objects/primitives/plane.obj"));
+    cubeModel = Model(FileSystem::getPath("resources/objects/primitives/cube.obj"));
+    sphereModel = Model(FileSystem::getPath("resources/objects/primitives/sphere.obj"));
+    cylinderModel = Model(FileSystem::getPath("resources/objects/primitives/cylinder.obj"));
+    cout << "Primitive Models Loaded\n";
     planetModel = Model(FileSystem::getPath("resources/objects/planet/planet.obj"));
     cout << "Planet Model Loaded\n";
     rockModel = Model(FileSystem::getPath("resources/objects/rock/rock.obj"));
@@ -844,31 +853,65 @@ int main()
             {
                 ImGui::Dummy({ 100.0f, 0.0f });
 
-                if (ImGui::MenuItem("Planet")) {
-                    scene.addChild(planetModel, "New Planet");
+                if (ImGui::MenuItem("Empty")) {
+                    scene.addChild();
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
-                if (ImGui::MenuItem("Rock")) {
-                    scene.addChild(rockModel, "New Rock");
-                    selected_hierarchy_node = scene.children.back().get()->id;
+                if (ImGui::BeginMenu("Primitives"))
+                {
+                    ImGui::Dummy({ 100.0f, 0.0f });
+
+                    if (ImGui::MenuItem("Plane")) {
+                        scene.addChild(planeModel, "New Plane");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    if (ImGui::MenuItem("Cube")) {
+                        scene.addChild(cubeModel, "New Cube");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    if (ImGui::MenuItem("Sphere")) {
+                        scene.addChild(sphereModel, "New Sphere");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    if (ImGui::MenuItem("Cylinder")) {
+                        scene.addChild(cylinderModel, "New Cylinder");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    ImGui::EndMenu();
                 }
-                if (ImGui::MenuItem("Backpack")) {
-                    scene.addChild(backPackModel, "New Backpack");
-                    selected_hierarchy_node = scene.children.back().get()->id;
-                }
-                if (ImGui::MenuItem("Car")) {
-                    scene.addChild(porcheModel, "New Car");
-                    selected_hierarchy_node = scene.children.back().get()->id;
-                }
-                if (ImGui::MenuItem("Cyborg")) {
-                    scene.addChild(cyborgModel, "New Cyborg");
-                    selected_hierarchy_node = scene.children.back().get()->id;
+                if (ImGui::BeginMenu("3D Models"))
+                {
+                    ImGui::Dummy({ 100.0f, 0.0f });
+
+                    if (ImGui::MenuItem("Planet")) {
+                        scene.addChild(planetModel, "New Planet");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    if (ImGui::MenuItem("Rock")) {
+                        scene.addChild(rockModel, "New Rock");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    if (ImGui::MenuItem("Backpack")) {
+                        scene.addChild(backPackModel, "New Backpack");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    if (ImGui::MenuItem("Car")) {
+                        scene.addChild(backPackModel, "New Car");
+                        selected_hierarchy_node = scene.children.back().get()->id;
+                    }
+                    ImGui::EndMenu();
                 }
                 ImGui::Separator();
+
+
+                ImGui::Spacing();
                 if (ImGui::MenuItem("PointLight")) {
                     scene.addChild(true, "New PointLight");
                     selected_hierarchy_node = scene.children.back().get()->id;
                 }
+                ImGui::Spacing();
+
+
                 ImGui::EndPopup();
             }
             ImGui::Spacing();
@@ -1645,7 +1688,33 @@ bool rightClickMenu(Entity& m_entity) {
     ImGui::PushID(m_entity.id);
     if (ImGui::BeginPopupContextItem("my_item_popup"))
     {
-        if (ImGui::BeginMenu("Add"))
+        if (ImGui::MenuItem("Empty")) {
+            m_entity.addChild();
+            selected_hierarchy_node = m_entity.children.back().get()->id;
+        }
+        if (ImGui::BeginMenu("Primitives"))
+        {
+            ImGui::Dummy({ 100.0f, 0.0f });
+
+            if (ImGui::MenuItem("Plane")) {
+                m_entity.addChild(planeModel, "New Plane");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Cube")) {
+                m_entity.addChild(cubeModel, "New Cube");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Sphere")) {
+                m_entity.addChild(sphereModel, "New Sphere");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            if (ImGui::MenuItem("Cylinder")) {
+                m_entity.addChild(cylinderModel, "New Cylinder");
+                selected_hierarchy_node = m_entity.children.back().get()->id;
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("3D Models"))
         {
             ImGui::Dummy({ 100.0f, 0.0f });
 
@@ -1661,12 +1730,19 @@ bool rightClickMenu(Entity& m_entity) {
                 m_entity.addChild(backPackModel, "New Backpack");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("PointLight")) {
-                m_entity.addChild(true, "New PointLight");
+            if (ImGui::MenuItem("Car")) {
+                m_entity.addChild(backPackModel, "New Car");
                 selected_hierarchy_node = m_entity.children.back().get()->id;
             }
             ImGui::EndMenu();
+        }
+        ImGui::Separator();
+
+
+        ImGui::Spacing();
+        if (ImGui::MenuItem("PointLight")) {
+            m_entity.addChild(true, "New PointLight");
+            selected_hierarchy_node = m_entity.children.back().get()->id;
         }
         ImGui::Separator();
         ImGui::Spacing();
@@ -1740,8 +1816,8 @@ bool rightClickMenu(Entity& m_entity) {
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+    /*if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);*/
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS && mouseDragEnabled)
         camera.ProcessKeyboard(FORWARD, deltaTime);
